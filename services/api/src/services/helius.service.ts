@@ -5,14 +5,17 @@ import { redis } from '../utils/redis';
 import { CircuitBreaker, retryWithBackoff } from '../utils/circuit-breaker';
 
 export class HeliusService {
-  private helius: Helius;
-  private connection: Connection;
-  private circuitBreaker: CircuitBreaker;
+  private helius?: Helius;
+  private connection?: Connection;
+  private circuitBreaker?: CircuitBreaker;
+  private initialized: boolean = false;
 
   constructor() {
     const apiKey = process.env.HELIUS_API_KEY;
     if (!apiKey) {
-      throw new Error('HELIUS_API_KEY is required');
+      console.warn('HELIUS_API_KEY not set - Helius service will not be available');
+      this.initialized = false;
+      return;
     }
 
     this.helius = new Helius(apiKey, process.env.HELIUS_CLUSTER as any || 'mainnet-beta');
@@ -21,9 +24,18 @@ export class HeliusService {
       'confirmed'
     );
     this.circuitBreaker = new CircuitBreaker(5, 60000, 2);
+    this.initialized = true;
+  }
+
+  private ensureInitialized() {
+    if (!this.initialized || !this.connection) {
+      throw new Error('HELIUS_API_KEY is not configured. Please set it in your environment variables.');
+    }
   }
 
   async getTransaction(signature: string): Promise<ParsedTransaction | null> {
+    this.ensureInitialized();
+
     const cacheKey = `tx:${signature}`;
     const cached = await redis.getJson<ParsedTransaction>(cacheKey);
 
@@ -31,7 +43,7 @@ export class HeliusService {
       return cached;
     }
 
-    const tx = await this.connection.getParsedTransaction(signature, {
+    const tx = await this.connection!.getParsedTransaction(signature, {
       maxSupportedTransactionVersion: 0,
     });
 
@@ -58,8 +70,10 @@ export class HeliusService {
     address: string,
     options: QueryOptions = {}
   ): Promise<ParsedTransaction[]> {
+    this.ensureInitialized();
+
     const limit = options.limit || 100;
-    const signatures = await this.connection.getSignaturesForAddress(
+    const signatures = await this.connection!.getSignaturesForAddress(
       new PublicKey(address),
       {
         limit,
@@ -197,7 +211,8 @@ export class HeliusService {
   }
 
   async getEnhancedTransaction(signature: string): Promise<any> {
-    return this.connection.getTransaction(signature, {
+    this.ensureInitialized();
+    return this.connection!.getTransaction(signature, {
       maxSupportedTransactionVersion: 0,
     });
   }
@@ -206,6 +221,8 @@ export class HeliusService {
     tokenMint: string,
     limit: number = 100
   ): Promise<Transfer[]> {
+    this.ensureInitialized();
+
     const cacheKey = `token-activity:${tokenMint}:${limit}`;
     const cached = await redis.getJson<any[]>(cacheKey);
 
@@ -216,7 +233,7 @@ export class HeliusService {
       }));
     }
 
-    const apiKey = process.env.HELIUS_API_KEY;
+    const apiKey = process.env.HELIUS_API_KEY!;
     const transfers: Transfer[] = [];
 
     try {
@@ -233,7 +250,7 @@ export class HeliusService {
         const remaining = limit - allSignatures.length;
         const pageSize = Math.min(remaining, maxPerPage);
 
-        const sigs = await this.connection.getSignaturesForAddress(
+        const sigs = await this.connection!.getSignaturesForAddress(
           new PublicKey(tokenMint),
           { limit: pageSize, before: beforeSig }
         );
@@ -315,7 +332,7 @@ export class HeliusService {
 
         // Get token largest accounts (top holders)
         try {
-          const largestAccounts = await this.connection.getTokenLargestAccounts(
+          const largestAccounts = await this.connection!.getTokenLargestAccounts(
             new PublicKey(tokenMint)
           );
 
@@ -326,7 +343,7 @@ export class HeliusService {
             const holderAddress = holder.address.toString();
 
             // Get account info to find the owner
-            const accountInfo = await this.connection.getParsedAccountInfo(holder.address);
+            const accountInfo = await this.connection!.getParsedAccountInfo(holder.address);
             const ownerAddress = (accountInfo.value?.data as any)?.parsed?.info?.owner;
 
             if (!ownerAddress) continue;
@@ -406,11 +423,13 @@ export class HeliusService {
     startTime: number,
     endTime: number
   ): Promise<ParsedTransaction[]> {
+    this.ensureInitialized();
+
     const transactions: ParsedTransaction[] = [];
     let before: string | undefined = undefined;
 
     while (true) {
-      const sigs = await this.connection.getSignaturesForAddress(
+      const sigs = await this.connection!.getSignaturesForAddress(
         new PublicKey(address),
         {
           limit: 100,
