@@ -99,7 +99,7 @@ export async function revokeApiKey(keyId: string, userId: string): Promise<boole
     [keyId, userId]
   );
 
-  return result.rowCount > 0;
+  return (result.rowCount ?? 0) > 0;
 }
 
 /**
