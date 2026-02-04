@@ -1,0 +1,3 @@
+# Prevent .env from being committed (extra safety)
+.env filter=secret
+*.env filter=secret

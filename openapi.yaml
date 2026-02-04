@@ -1,0 +1,903 @@
+openapi: 3.0.0
+info:
+  title: Token Flow API
+  description: |
+    Track cryptocurrency token flows, analyze wallet activity, and detect suspicious patterns on the Solana blockchain.
+
+    ## Features
+    - 🔍 **Token Flow Tracking**: Follow token movements across multiple hops
+    - 📊 **Token Activity Analysis**: Analyze token-wide trading patterns
+    - 🛡️ **Risk Assessment**: ML-powered risk scoring for wallets
+    - 🎯 **Transaction Tracing**: Detailed transaction signature analysis
+    - 👤 **User Management**: Self-service registration and API key management
+    - 📈 **Usage Tracking**: Real-time usage monitoring and analytics
+
+    ## Getting Started
+    1. Subscribe to this API on the APIX marketplace
+    2. Receive your API key automatically upon subscription
+    3. Use your API key in the `x-api-key` header for all requests
+    4. Monitor your usage at `/api/v1/users/usage`
+
+    ## Authentication
+    All endpoints (except registration and health check) require an API key passed in the `x-api-key` header.
+
+    ## Pricing
+    This API uses **pay-per-call pricing** through the APIX marketplace.
+    - Payment is handled automatically by APIX in USDC
+    - Each API call is charged based on the rate set in the marketplace
+    - No subscription fees or monthly quotas
+    - Pay only for what you use
+
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@yourcompany.com
+  license:
+    name: Commercial
+    url: https://yourcompany.com/terms
+
+servers:
+  - url: https://api.yourcompany.com
+    description: Production server
+  - url: http://localhost:3000
+    description: Development server
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Check if the API is operational
+      tags:
+        - System
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+                  service:
+                    type: string
+                    example: token-flow-api
+
+  /api/v1/analyze/path:
+    post:
+      summary: Analyze Token Flow Path
+      description: |
+        Track token movements from a specific wallet address. Supports both forward tracking
+        (where tokens went) and backward tracking (where tokens came from).
+      tags:
+        - Analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+                - token
+                - direction
+              properties:
+                address:
+                  type: string
+                  description: Solana wallet address to analyze
+                  example: JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4
+                token:
+                  type: string
+                  description: Token mint address
+                  example: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+                direction:
+                  type: string
+                  enum: [forward, backward]
+                  description: |
+                    - forward: Track where tokens went from this wallet
+                    - backward: Track where tokens came from to this wallet
+                  example: forward
+                maxDepth:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  default: 2
+                  description: Maximum number of hops to trace
+                  example: 2
+                timeRange:
+                  type: string
+                  enum: [1d, 7d, 30d, 90d, 365d]
+                  default: 7d
+                  description: Time range to analyze
+                  example: 7d
+      responses:
+        '200':
+          description: Analysis completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paths:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        confidenceScore:
+                          type: number
+                          example: 0.87
+                        intent:
+                          type: string
+                          example: swap
+                        riskLevel:
+                          type: string
+                          example: low
+                        riskScore:
+                          type: integer
+                          example: 25
+                        hops:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              address:
+                                type: string
+                              entityType:
+                                type: string
+                              entityName:
+                                type: string
+                              amountIn:
+                                type: string
+                              amountOut:
+                                type: string
+                  summary:
+                    type: object
+                    properties:
+                      totalPaths:
+                        type: integer
+                      netFlow:
+                        type: object
+                        properties:
+                          in:
+                            type: string
+                          out:
+                            type: string
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+
+  /api/v1/analyze/token:
+    post:
+      summary: Analyze Token Activity
+      description: |
+        Analyze overall activity for a specific token across all wallets.
+        Provides insights into trading patterns, top holders, and transaction statistics.
+      tags:
+        - Analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  description: Token mint address to analyze
+                  example: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+                limit:
+                  type: integer
+                  minimum: 10
+                  maximum: 1000
+                  default: 100
+                  description: Maximum number of transactions to analyze
+                  example: 100
+      responses:
+        '200':
+          description: Token activity analysis completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stats:
+                    type: object
+                    properties:
+                      totalTransfers:
+                        type: integer
+                        example: 1250
+                      swapCount:
+                        type: integer
+                        example: 450
+                      transferCount:
+                        type: integer
+                        example: 800
+                      uniqueWallets:
+                        type: integer
+                        example: 342
+                      totalVolume:
+                        type: string
+                        example: "15000000000"
+                      topSenders:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            address:
+                              type: string
+                            volume:
+                              type: string
+                            txCount:
+                              type: integer
+                      topReceivers:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            address:
+                              type: string
+                            volume:
+                              type: string
+                            txCount:
+                              type: integer
+                  graph:
+                    type: object
+                    description: Graph visualization data
+                    properties:
+                      nodes:
+                        type: array
+                        items:
+                          type: object
+                      edges:
+                        type: array
+                        items:
+                          type: object
+
+  /api/v1/risk/{address}:
+    get:
+      summary: Get Wallet Risk Assessment
+      description: |
+        Get ML-powered risk assessment for a specific wallet address.
+        Returns risk score (0-100) and detected risk flags.
+      tags:
+        - Risk Assessment
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: Solana wallet address to assess
+          schema:
+            type: string
+          example: JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4
+        - name: token
+          in: query
+          required: false
+          description: Optional token mint address for token-specific risk
+          schema:
+            type: string
+          example: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+      responses:
+        '200':
+          description: Risk assessment completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  riskScore:
+                    type: integer
+                    minimum: 0
+                    maximum: 100
+                    example: 45
+                  riskLevel:
+                    type: string
+                    enum: [low, medium, high, critical]
+                    example: medium
+                  flags:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          example: high_velocity
+                        severity:
+                          type: string
+                          enum: [low, medium, high, critical]
+                        details:
+                          type: object
+
+  /api/v1/trace:
+    post:
+      summary: Trace Transaction Signatures
+      description: |
+        Trace specific transaction signatures to get detailed information
+        about transaction intent and risk assessment.
+      tags:
+        - Tracing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - signatures
+              properties:
+                signatures:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 1
+                  maxItems: 100
+                  description: Array of transaction signatures to trace
+                  example:
+                    - 5KxH9f2jG8pT3qL...
+                    - 3mP7sN9kF2hR8vM...
+      responses:
+        '200':
+          description: Transactions traced successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  traces:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        signature:
+                          type: string
+                        intent:
+                          type: string
+                        riskScore:
+                          type: integer
+                        timestamp:
+                          type: string
+                          format: date-time
+
+  /api/v1/users/register:
+    post:
+      summary: Register New User
+      description: |
+        Register a new user account and receive an API key.
+        This endpoint is typically called automatically by APIX webhook when a user subscribes.
+        Direct registration is also supported for testing and development.
+      tags:
+        - User Management
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: User email address
+                  example: user@company.com
+                fullName:
+                  type: string
+                  description: User's full name
+                  example: John Doe
+                companyName:
+                  type: string
+                  description: Company name
+                  example: Acme Corp
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  user:
+                    $ref: '#/components/schemas/User'
+                  subscription:
+                    $ref: '#/components/schemas/Subscription'
+                  apiKey:
+                    type: object
+                    properties:
+                      key:
+                        type: string
+                        description: Your API key (shown only once!)
+                        example: tfa_live_a1b2c3d4e5f6...
+                      keyPrefix:
+                        type: string
+                        example: tfa_live_a1b2c3d4
+                      warning:
+                        type: string
+                        example: Save this API key securely. You will not be able to see it again!
+        '400':
+          description: Invalid email address
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/users/me:
+    get:
+      summary: Get Current User Information
+      description: Get information about the authenticated user
+      tags:
+        - User Management
+      responses:
+        '200':
+          description: User information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/users/usage:
+    get:
+      summary: Get Usage Statistics
+      description: |
+        Get usage analytics for the authenticated user.
+        Track your API call history and monitor usage patterns.
+        Note: Billing is handled by APIX on a per-call basis.
+      tags:
+        - User Management
+      responses:
+        '200':
+          description: Usage statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalCalls:
+                    type: integer
+                    description: Total number of API calls made
+                    example: 1245
+                  callsToday:
+                    type: integer
+                    description: Number of calls made today
+                    example: 45
+                  callsThisMonth:
+                    type: integer
+                    description: Number of calls made this month
+                    example: 245
+                  lastCallAt:
+                    type: string
+                    format: date-time
+                    description: Timestamp of last API call
+                  rateLimitPerMinute:
+                    type: integer
+                    description: Rate limit per minute (for abuse prevention)
+                    example: 60
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/users/keys:
+    get:
+      summary: List API Keys
+      description: Get all API keys for the authenticated user
+      tags:
+        - User Management
+      responses:
+        '200':
+          description: API keys retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApiKey'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Generate New API Key
+      description: Generate a new API key for the authenticated user
+      tags:
+        - User Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Optional name for the API key
+                  example: Production Key
+      responses:
+        '201':
+          description: API key generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  apiKey:
+                    type: object
+                    properties:
+                      key:
+                        type: string
+                        description: Your new API key (shown only once!)
+                        example: tfa_live_x9y8z7w6v5u4...
+                      keyPrefix:
+                        type: string
+                        example: tfa_live_x9y8z7w6
+                      name:
+                        type: string
+                        example: Production Key
+                      warning:
+                        type: string
+                        example: Save this API key securely. You will not be able to see it again!
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/users/keys/{keyId}:
+    delete:
+      summary: Revoke API Key
+      description: Revoke (deactivate) an API key
+      tags:
+        - User Management
+      parameters:
+        - name: keyId
+          in: path
+          required: true
+          description: API key ID to revoke
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: API key revoked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: API key revoked successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: API key not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/users/cancel:
+    post:
+      summary: Cancel Subscription
+      description: |
+        Cancel the current subscription.
+        This endpoint is primarily used by APIX webhooks when a user unsubscribes.
+        Users should manage subscriptions through the APIX marketplace interface.
+      tags:
+        - User Management
+      responses:
+        '200':
+          description: Subscription cancelled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Subscription cancelled successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /webhooks/apix:
+    post:
+      summary: APIX Marketplace Webhook
+      description: |
+        Webhook endpoint for APIX marketplace integration.
+        Handles subscription events from the APIX platform.
+
+        **Note:** This endpoint requires a valid webhook signature in the `x-webhook-signature` header.
+      tags:
+        - Webhooks
+      security:
+        - WebhookSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - event
+                - data
+                - timestamp
+              properties:
+                event:
+                  type: string
+                  enum:
+                    - user.subscribed
+                    - user.cancelled
+                    - user.renewed
+                  description: Event type
+                  example: user.subscribed
+                data:
+                  type: object
+                  description: Event-specific data
+                timestamp:
+                  type: string
+                  format: date-time
+            examples:
+              user.subscribed:
+                value:
+                  event: user.subscribed
+                  data:
+                    apixUserId: apix_user_123
+                    email: user@company.com
+                    metadata:
+                      fullName: John Doe
+                      companyName: Acme Corp
+                  timestamp: 2026-02-04T10:30:00Z
+              user.cancelled:
+                value:
+                  event: user.cancelled
+                  data:
+                    apixUserId: apix_user_123
+                    reason: user_requested
+                  timestamp: 2026-02-04T10:30:00Z
+              user.renewed:
+                value:
+                  event: user.renewed
+                  data:
+                    apixUserId: apix_user_123
+                  timestamp: 2026-02-04T10:30:00Z
+      responses:
+        '200':
+          description: Webhook processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  apiKey:
+                    type: string
+                    description: API key (only returned for user.subscribed events)
+                    example: tfa_live_a1b2c3d4...
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid webhook payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid webhook signature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: |
+        API key for authentication. Get your key from your dashboard.
+
+        Example: `x-api-key: tfa_live_4KxH9f2j...`
+
+    WebhookSignature:
+      type: apiKey
+      in: header
+      name: x-webhook-signature
+      description: HMAC SHA256 signature of the webhook payload
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        email:
+          type: string
+          format: email
+          example: user@company.com
+        fullName:
+          type: string
+          example: John Doe
+        companyName:
+          type: string
+          example: Acme Corp
+        status:
+          type: string
+          enum: [active, cancelled, suspended]
+          example: active
+        totalCalls:
+          type: integer
+          description: Total number of API calls made
+          example: 1245
+        createdAt:
+          type: string
+          format: date-time
+
+    Subscription:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [active, cancelled, suspended]
+          example: active
+        rateLimitPerMinute:
+          type: integer
+          description: Rate limit per minute (for abuse prevention)
+          example: 60
+        subscribedAt:
+          type: string
+          format: date-time
+          description: When the user subscribed via APIX
+
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        keyPrefix:
+          type: string
+          description: First 16 characters of the key for identification
+          example: tfa_live_a1b2c3d4
+        name:
+          type: string
+          example: Production Key
+        active:
+          type: boolean
+          example: true
+        totalCalls:
+          type: integer
+          description: Total number of API calls made with this key
+          example: 1250
+        lastUsedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Invalid wallet address
+        message:
+          type: string
+          example: The provided wallet address is not a valid Solana address
+        requestId:
+          type: string
+          example: req_abc123xyz
+        timestamp:
+          type: string
+          format: date-time
+
+    RateLimitError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Rate limit exceeded
+        message:
+          type: string
+          example: You have exceeded your plan's rate limit
+        retryAfter:
+          type: integer
+          description: Seconds until you can retry
+          example: 60
+        limit:
+          type: integer
+          description: Your rate limit per minute
+          example: 60
+        remaining:
+          type: integer
+          description: Remaining requests in current window
+          example: 0
+        resetAt:
+          type: string
+          format: date-time
+
+tags:
+  - name: System
+    description: System health and status endpoints
+  - name: Analysis
+    description: Token flow and activity analysis
+  - name: Risk Assessment
+    description: ML-powered risk detection
+  - name: Tracing
+    description: Transaction signature tracing
+  - name: User Management
+    description: User registration, API key management, and subscription control
+  - name: Webhooks
+    description: Webhook endpoints for external integrations

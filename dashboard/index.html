@@ -1,0 +1,1886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Token Flow Analyzer - Dashboard</title>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      color: #e4e4e4;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      padding: 30px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      background: linear-gradient(90deg, #00d4ff, #7c3aed, #f472b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      color: #888;
+      font-size: 1.1rem;
+    }
+
+    /* Status Bar */
+    .status-bar {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-bottom: 30px;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 20px;
+      font-size: 0.9rem;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .status-dot.green { background: #22c55e; }
+    .status-dot.red { background: #ef4444; }
+    .status-dot.yellow { background: #eab308; }
+
+    /* Main Layout */
+    .main-layout {
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 20px;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: rgba(255,255,255,0.03);
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .input-section {
+      margin-bottom: 25px;
+    }
+
+    .input-section h3 {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+      margin-bottom: 12px;
+    }
+
+    .input-group {
+      margin-bottom: 15px;
+    }
+
+    .input-group label {
+      display: block;
+      font-size: 0.85rem;
+      color: #aaa;
+      margin-bottom: 6px;
+    }
+
+    .input-group input, .input-group select {
+      width: 100%;
+      padding: 12px 14px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.95rem;
+      transition: all 0.3s;
+    }
+
+    .input-group input:focus, .input-group select:focus {
+      outline: none;
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+    }
+
+    .input-group input::placeholder {
+      color: #555;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 10px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(124, 58, 237, 0.3);
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.15);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Quick Actions */
+    .quick-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .quick-btn {
+      padding: 10px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      color: #aaa;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .quick-btn:hover {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+
+    /* Main Content */
+    .main-content {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Graph Container */
+    .graph-container {
+      background: rgba(0,0,0,0.3);
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.1);
+      height: 500px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .graph-container h3 {
+      position: absolute;
+      top: 15px;
+      left: 20px;
+      font-size: 0.9rem;
+      color: #888;
+      z-index: 10;
+    }
+
+    #tokenFlowGraph {
+      width: 100%;
+      height: 100%;
+    }
+
+    .graph-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #555;
+    }
+
+    .graph-placeholder svg {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 20px;
+      opacity: 0.3;
+    }
+
+    /* Info Cards */
+    .info-cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+    }
+
+    .info-card {
+      background: rgba(255,255,255,0.03);
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .info-card .label {
+      font-size: 0.8rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .info-card .value {
+      font-size: 1.8rem;
+      font-weight: 700;
+    }
+
+    .info-card .value.risk-low { color: #22c55e; }
+    .info-card .value.risk-medium { color: #eab308; }
+    .info-card .value.risk-high { color: #f97316; }
+    .info-card .value.risk-critical { color: #ef4444; }
+
+    .info-card .subtitle {
+      font-size: 0.85rem;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    /* Results Panel */
+    .results-panel {
+      background: rgba(255,255,255,0.03);
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 20px;
+    }
+
+    .results-panel h3 {
+      font-size: 1rem;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tab-buttons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .tab-btn {
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      color: #888;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .tab-btn.active {
+      background: rgba(124, 58, 237, 0.2);
+      border-color: #7c3aed;
+      color: #fff;
+    }
+
+    .results-content {
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      padding: 15px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+
+    .results-content pre {
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Clickable address and txID styles */
+    .clickable-address {
+      color: #7c3aed;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(124, 58, 237, 0.15);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(124, 58, 237, 0.3);
+    }
+    .clickable-address:hover {
+      color: #a855f7;
+      background: rgba(124, 58, 237, 0.3);
+      border-color: #7c3aed;
+      transform: translateY(-1px);
+    }
+    .clickable-address::before {
+      content: '';
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237c3aed' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v4m0 12v4M2 12h4m12 0h4'/%3E%3C/svg%3E");
+      background-size: contain;
+    }
+    .clickable-tx {
+      color: #3b82f6;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 0.8em;
+      margin-left: 8px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(59, 130, 246, 0.15);
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+    .clickable-tx:hover {
+      color: #60a5fa;
+      background: rgba(59, 130, 246, 0.3);
+      border-color: #3b82f6;
+      transform: translateY(-1px);
+    }
+    .clickable-tx::after {
+      content: '';
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/%3E%3Cpolyline points='15 3 21 3 21 9'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
+      background-size: contain;
+    }
+    .results-row {
+      display: flex;
+      align-items: center;
+      padding: 8px 4px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      gap: 8px;
+    }
+    .results-row:hover {
+      background: rgba(255,255,255,0.03);
+    }
+    .results-rank {
+      width: 30px;
+      color: #888;
+      font-weight: bold;
+    }
+    .results-volume {
+      color: #22c55e;
+      margin-left: auto;
+      font-weight: 600;
+      font-size: 0.95em;
+    }
+    .tx-count {
+      color: #888;
+      font-size: 0.75em;
+    }
+    .action-hint {
+      font-size: 0.7em;
+      color: #666;
+      margin-top: 4px;
+      display: flex;
+      gap: 15px;
+    }
+    .action-hint span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Risk Flags */
+    .risk-flags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .risk-flag {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .risk-flag.critical {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .risk-flag.high {
+      background: rgba(249, 115, 22, 0.2);
+      color: #f97316;
+      border: 1px solid rgba(249, 115, 22, 0.3);
+    }
+
+    .risk-flag.warning {
+      background: rgba(234, 179, 8, 0.2);
+      color: #eab308;
+      border: 1px solid rgba(234, 179, 8, 0.3);
+    }
+
+    /* Loading Spinner */
+    .loading {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .loading.active {
+      display: flex;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: #7c3aed;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading p {
+      margin-top: 20px;
+      color: #888;
+    }
+
+    /* Toast Notifications */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 15px 25px;
+      border-radius: 8px;
+      color: white;
+      font-weight: 500;
+      transform: translateX(120%);
+      transition: transform 0.3s;
+      z-index: 1001;
+    }
+
+    .toast.show {
+      transform: translateX(0);
+    }
+
+    .toast.success { background: #22c55e; }
+    .toast.error { background: #ef4444; }
+    .toast.info { background: #3b82f6; }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      gap: 20px;
+      padding: 15px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: #888;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .legend-dot.wallet { background: #3b82f6; }
+    .legend-dot.dex { background: #22c55e; }
+    .legend-dot.cex { background: #f59e0b; }
+    .legend-dot.bridge { background: #8b5cf6; }
+    .legend-dot.mixer { background: #ef4444; }
+    .legend-dot.lending { background: #06b6d4; }
+
+    /* Mode Toggle */
+    .mode-toggle {
+      display: flex;
+      gap: 10px;
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 12px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      color: #888;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .mode-btn:hover {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+
+    .mode-btn.active {
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+      border-color: #7c3aed;
+      color: #fff;
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .info-cards {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .info-cards {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>Token Flow Analyzer</h1>
+      <p>Track token movements, detect risks, and visualize blockchain flows</p>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <div class="status-item">
+        <span class="status-dot" id="apiStatus"></span>
+        <span>API</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot" id="mlStatus"></span>
+        <span>ML Service</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot" id="dbStatus"></span>
+        <span>Database</span>
+      </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="main-layout">
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <div class="input-section">
+          <h3>Configuration</h3>
+          <div class="input-group">
+            <label>API Key</label>
+            <input type="password" id="apiKey" value="test_api_key_123" placeholder="Enter your API key">
+          </div>
+        </div>
+
+        <div class="input-section">
+          <h3>Analysis Mode</h3>
+          <div class="mode-toggle">
+            <button class="mode-btn active" id="walletModeBtn" onclick="setAnalysisMode('wallet')">Wallet Flow</button>
+            <button class="mode-btn" id="tokenModeBtn" onclick="setAnalysisMode('token')">Token Activity</button>
+          </div>
+        </div>
+
+        <div class="input-section">
+          <h3 id="analysisTitle">Token Flow Analysis</h3>
+          <div class="input-group" id="walletInputGroup">
+            <label>Wallet Address</label>
+            <input type="text" id="walletAddress" placeholder="Enter Solana wallet address">
+          </div>
+          <div class="input-group">
+            <label>Token Contract</label>
+            <input type="text" id="tokenMint" value="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" placeholder="Token mint address">
+          </div>
+          <div class="input-group" id="directionGroup">
+            <label>Direction</label>
+            <select id="direction">
+              <option value="forward">Forward (Where tokens went)</option>
+              <option value="backward">Backward (Where tokens came from)</option>
+            </select>
+          </div>
+          <div class="input-group" id="maxDepthGroup">
+            <label>Max Hops</label>
+            <select id="maxDepth">
+              <option value="1">1 hop</option>
+              <option value="2" selected>2 hops</option>
+              <option value="3">3 hops</option>
+              <option value="4">4 hops</option>
+              <option value="5">5 hops</option>
+            </select>
+          </div>
+          <div class="input-group" id="timeRangeGroup">
+            <label>Time Range</label>
+            <select id="timeRange">
+              <option value="1d">Last 24 hours</option>
+              <option value="7d" selected>Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+            </select>
+          </div>
+          <div class="input-group" id="limitGroup" style="display: none;">
+            <label>Max Transfers</label>
+            <select id="transferLimit">
+              <option value="50">50 transfers</option>
+              <option value="100" selected>100 transfers</option>
+              <option value="200">200 transfers</option>
+              <option value="500">500 transfers</option>
+              <option value="1000">1,000 transfers</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" id="analyzeBtn" onclick="runAnalysis()">
+            Analyze Token Flow
+          </button>
+          <button class="btn btn-secondary" id="riskBtn" onclick="checkRisk()">
+            Check Risk Score
+          </button>
+        </div>
+
+        <div class="input-section">
+          <h3>Quick Fill - Test Addresses</h3>
+          <div class="quick-actions">
+            <button class="quick-btn" onclick="fillAddress('JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4')">Jupiter</button>
+            <button class="quick-btn" onclick="fillAddress('675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8')">Raydium</button>
+            <button class="quick-btn" onclick="fillAddress('whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc')">Orca</button>
+            <button class="quick-btn" onclick="fillAddress('So11111111111111111111111111111111111111112')">Wrapped SOL</button>
+          </div>
+        </div>
+
+        <div class="input-section">
+          <h3>Common Tokens</h3>
+          <div class="quick-actions">
+            <button class="quick-btn" onclick="fillToken('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')">USDC</button>
+            <button class="quick-btn" onclick="fillToken('Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB')">USDT</button>
+            <button class="quick-btn" onclick="fillToken('DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263')">BONK</button>
+            <button class="quick-btn" onclick="fillToken('So11111111111111111111111111111111111111112')">SOL</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="main-content">
+        <!-- Info Cards -->
+        <div class="info-cards">
+          <div class="info-card">
+            <div class="label">Risk Score</div>
+            <div class="value risk-low" id="riskScoreValue">--</div>
+            <div class="subtitle" id="riskLevelText">Not analyzed</div>
+          </div>
+          <div class="info-card">
+            <div class="label">Total Paths</div>
+            <div class="value" id="totalPaths">--</div>
+            <div class="subtitle">Flow paths found</div>
+          </div>
+          <div class="info-card">
+            <div class="label">Net Flow In</div>
+            <div class="value" id="netFlowIn">--</div>
+            <div class="subtitle">Tokens received</div>
+          </div>
+          <div class="info-card">
+            <div class="label">Net Flow Out</div>
+            <div class="value" id="netFlowOut">--</div>
+            <div class="subtitle">Tokens sent</div>
+          </div>
+        </div>
+
+        <!-- Graph Container -->
+        <div class="graph-container">
+          <h3>Token Flow Graph</h3>
+          <div id="tokenFlowGraph">
+            <div class="graph-placeholder" id="graphPlaceholder">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
+              <p>Enter a wallet address and click "Analyze Token Flow" to visualize the graph</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+          <div class="legend-item"><span class="legend-dot" style="background: #7c3aed;"></span> Your Wallet</div>
+          <div class="legend-item"><span class="legend-dot wallet"></span> Wallet</div>
+          <div class="legend-item"><span class="legend-dot dex"></span> DEX</div>
+          <div class="legend-item"><span class="legend-dot cex"></span> CEX</div>
+          <div class="legend-item"><span class="legend-dot bridge"></span> Bridge</div>
+          <div class="legend-item"><span class="legend-dot mixer"></span> Mixer (High Risk)</div>
+          <div class="legend-item"><span class="legend-dot lending"></span> Lending</div>
+          <div class="legend-item" style="border-left: 1px solid rgba(255,255,255,0.2); padding-left: 10px; margin-left: 10px;">
+            <span style="display: inline-block; width: 20px; height: 3px; background: rgba(255,255,255,0.5); vertical-align: middle;"></span> Transfer
+          </div>
+          <div class="legend-item">
+            <span style="display: inline-block; width: 20px; height: 3px; background: #22c55e; vertical-align: middle; border-style: dashed;"></span> Buy
+          </div>
+          <div class="legend-item">
+            <span style="display: inline-block; width: 20px; height: 3px; background: #ef4444; vertical-align: middle; border-style: dashed;"></span> Sell
+          </div>
+        </div>
+
+        <!-- Results Panel -->
+        <div class="results-panel">
+          <h3>
+            <span>Analysis Results</span>
+          </h3>
+          <div class="tab-buttons">
+            <button class="tab-btn active" onclick="showTab('paths')">Paths</button>
+            <button class="tab-btn" onclick="showTab('risk')">Risk Flags</button>
+            <button class="tab-btn" onclick="showTab('raw')">Raw JSON</button>
+          </div>
+          <div class="results-content" id="resultsContent">
+            <pre id="resultsText">Results will appear here after analysis...</pre>
+          </div>
+          <div class="risk-flags" id="riskFlags"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p id="loadingText">Analyzing token flows...</p>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // Configuration
+    const API_BASE = 'http://localhost:3000';
+    const ML_BASE = 'http://localhost:8001';
+
+    let currentResults = null;
+    let network = null;
+    let analysisMode = 'wallet'; // 'wallet' or 'token'
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      checkServices();
+      setInterval(checkServices, 30000); // Check every 30 seconds
+    });
+
+    // Check service health
+    async function checkServices() {
+      // Check API
+      try {
+        const res = await fetch(`${API_BASE}/health`);
+        const data = await res.json();
+        document.getElementById('apiStatus').className = 'status-dot ' + (data.status === 'ok' ? 'green' : 'red');
+        document.getElementById('dbStatus').className = 'status-dot green'; // Assume DB is ok if API is ok
+      } catch (e) {
+        document.getElementById('apiStatus').className = 'status-dot red';
+        document.getElementById('dbStatus').className = 'status-dot red';
+      }
+
+      // Check ML Service
+      try {
+        const res = await fetch(`${ML_BASE}/health`);
+        const data = await res.json();
+        document.getElementById('mlStatus').className = 'status-dot ' + (data.status === 'ok' ? 'green' : 'yellow');
+      } catch (e) {
+        document.getElementById('mlStatus').className = 'status-dot red';
+      }
+    }
+
+    // Quick fill functions
+    function fillAddress(address) {
+      document.getElementById('walletAddress').value = address;
+    }
+
+    function fillToken(token) {
+      document.getElementById('tokenMint').value = token;
+    }
+
+    // Analysis mode toggle
+    function setAnalysisMode(mode) {
+      analysisMode = mode;
+
+      // Update button states
+      document.getElementById('walletModeBtn').classList.toggle('active', mode === 'wallet');
+      document.getElementById('tokenModeBtn').classList.toggle('active', mode === 'token');
+
+      // Show/hide relevant fields
+      const walletFields = ['walletInputGroup', 'directionGroup', 'maxDepthGroup', 'timeRangeGroup'];
+      const tokenFields = ['limitGroup'];
+
+      walletFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = mode === 'wallet' ? 'block' : 'none';
+      });
+
+      tokenFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = mode === 'token' ? 'block' : 'none';
+      });
+
+      // Update titles and buttons
+      document.getElementById('analysisTitle').textContent =
+        mode === 'wallet' ? 'Token Flow Analysis' : 'Token Activity Analysis';
+      document.getElementById('analyzeBtn').textContent =
+        mode === 'wallet' ? 'Analyze Token Flow' : 'Analyze Token Activity';
+      document.getElementById('riskBtn').style.display = mode === 'wallet' ? 'block' : 'none';
+    }
+
+    // Run the appropriate analysis based on mode
+    function runAnalysis() {
+      if (analysisMode === 'wallet') {
+        analyzeFlow();
+      } else {
+        analyzeTokenActivity();
+      }
+    }
+
+    // Analyze token activity (token-wide, no specific wallet)
+    async function analyzeTokenActivity() {
+      const apiKey = document.getElementById('apiKey').value;
+      const tokenMint = document.getElementById('tokenMint').value;
+      const limit = document.getElementById('transferLimit').value;
+
+      if (!tokenMint) {
+        showToast('Please enter a token contract address', 'error');
+        return;
+      }
+
+      if (!apiKey) {
+        showToast('Please enter your API key', 'error');
+        return;
+      }
+
+      setLoading(true, 'Analyzing token activity...');
+
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/analyze/token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey
+          },
+          body: JSON.stringify({
+            token: tokenMint,
+            limit: parseInt(limit)
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'API request failed');
+        }
+
+        const data = await response.json();
+        data._analysisMode = 'token';
+        currentResults = data;
+
+        // Update UI for token analysis
+        updateTokenInfoCards(data);
+        drawTokenGraph(data);
+        document.getElementById('resultsText').innerHTML = formatTokenResults(data);
+
+        showToast('Token analysis complete!', 'success');
+      } catch (error) {
+        showToast(error.message, 'error');
+        console.error('Token analysis error:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // Update info cards for token analysis
+    function updateTokenInfoCards(data) {
+      const swapCount = data.stats?.swapCount || 0;
+      const transferCount = data.stats?.transferCount || 0;
+
+      document.getElementById('riskScoreValue').textContent = swapCount;
+      document.getElementById('riskLevelText').textContent = `Swaps (${transferCount} transfers)`;
+
+      document.getElementById('totalPaths').textContent = data.stats?.totalTransfers || 0;
+      document.getElementById('totalPaths').parentElement.querySelector('.subtitle').textContent = 'Total transactions';
+
+      const volume = parseFloat(data.stats?.totalVolume || 0) / 1e6;
+      document.getElementById('netFlowIn').textContent = data.stats?.uniqueWallets || 0;
+      document.getElementById('netFlowIn').parentElement.querySelector('.subtitle').textContent = 'Unique wallets';
+
+      document.getElementById('netFlowOut').textContent = volume.toLocaleString();
+      document.getElementById('netFlowOut').parentElement.querySelector('.subtitle').textContent = 'Total volume';
+    }
+
+    // Format token analysis results with clickable HTML elements
+    function formatTokenResults(data) {
+      if (!data.stats) {
+        return '<div>No token activity data available.</div>';
+      }
+
+      let output = `<div style="font-family: monospace;">`;
+      output += `<div style="font-weight: bold; font-size: 1.1em; margin-bottom: 10px;">Token Activity Analysis</div>`;
+      output += `<div style="border-bottom: 1px solid rgba(255,255,255,0.2); margin-bottom: 15px; padding-bottom: 10px;">`;
+      output += `<div>Total Transactions: <strong>${data.stats.totalTransfers}</strong></div>`;
+      output += `<div style="padding-left: 15px;">- Swaps: ${data.stats.swapCount || 0}</div>`;
+      output += `<div style="padding-left: 15px;">- Transfers: ${data.stats.transferCount || 0}</div>`;
+      output += `<div>Unique Wallets: <strong>${data.stats.uniqueWallets}</strong></div>`;
+      output += `<div>Total Volume: <strong>${(parseFloat(data.stats.totalVolume) / 1e6).toLocaleString()}</strong> tokens</div>`;
+      output += `</div>`;
+
+      // Add action hints
+      output += `<div class="action-hint" style="margin-bottom: 12px; padding: 8px; background: rgba(255,255,255,0.03); border-radius: 6px;">`;
+      output += `<span><span style="color: #7c3aed;">&#9673;</span> Click address to highlight in graph</span>`;
+      output += `<span><span style="color: #3b82f6;">&#8599;</span> Click tx to view on Solscan</span>`;
+      output += `</div>`;
+
+      if (data.stats.topSenders && data.stats.topSenders.length > 0) {
+        output += `<div style="margin-bottom: 20px;">`;
+        output += `<div style="font-weight: bold; margin-bottom: 10px; color: #ef4444; font-size: 1.05em;">&#9650; Top Senders</div>`;
+        data.stats.topSenders.slice(0, 5).forEach((sender, i) => {
+          const vol = (parseFloat(sender.volume) / 1e6).toLocaleString();
+          const shortAddr = shortenAddress(sender.address);
+          const txLink = sender.txSignature
+            ? `<a href="https://solscan.io/tx/${sender.txSignature}" target="_blank" class="clickable-tx" title="View on Solscan">${shortenAddress(sender.txSignature)}</a>`
+            : '';
+          const txCount = sender.txCount ? `<span class="tx-count">${sender.txCount} txs</span>` : '';
+          output += `<div class="results-row">`;
+          output += `<span class="results-rank">${i + 1}.</span>`;
+          output += `<span class="clickable-address" onclick="highlightAddressInGraph('${sender.address}')" title="Highlight in graph">${shortAddr}</span>`;
+          output += txLink;
+          output += txCount;
+          output += `<span class="results-volume">${vol} tokens</span>`;
+          output += `</div>`;
+        });
+        output += `</div>`;
+      }
+
+      if (data.stats.topReceivers && data.stats.topReceivers.length > 0) {
+        output += `<div style="margin-bottom: 15px;">`;
+        output += `<div style="font-weight: bold; margin-bottom: 10px; color: #22c55e; font-size: 1.05em;">&#9660; Top Receivers</div>`;
+        data.stats.topReceivers.slice(0, 5).forEach((receiver, i) => {
+          const vol = (parseFloat(receiver.volume) / 1e6).toLocaleString();
+          const shortAddr = shortenAddress(receiver.address);
+          const txLink = receiver.txSignature
+            ? `<a href="https://solscan.io/tx/${receiver.txSignature}" target="_blank" class="clickable-tx" title="View on Solscan">${shortenAddress(receiver.txSignature)}</a>`
+            : '';
+          const txCount = receiver.txCount ? `<span class="tx-count">${receiver.txCount} txs</span>` : '';
+          output += `<div class="results-row">`;
+          output += `<span class="results-rank">${i + 1}.</span>`;
+          output += `<span class="clickable-address" onclick="highlightAddressInGraph('${receiver.address}')" title="Highlight in graph">${shortAddr}</span>`;
+          output += txLink;
+          output += txCount;
+          output += `<span class="results-volume">${vol} tokens</span>`;
+          output += `</div>`;
+        });
+        output += `</div>`;
+      }
+
+      output += `</div>`;
+      return output;
+    }
+
+    // Store original node/edge data for resetting
+    let originalNodeColors = new Map();
+    let originalEdgeColors = new Map();
+    let isHighlightActive = false;
+
+    // Highlight a specific address and its connections in the graph
+    function highlightAddressInGraph(address) {
+      if (!network || !currentResults || !currentResults.graph) {
+        showToast('No graph data available', 'error');
+        return;
+      }
+
+      // Find the node
+      const nodeExists = currentResults.graph.nodes.some(n => n.id === address || n.address === address);
+      if (!nodeExists) {
+        showToast('Address not found in graph', 'error');
+        return;
+      }
+
+      // Get all nodes and edges from the network
+      const allNodes = network.body.data.nodes;
+      const allEdges = network.body.data.edges;
+
+      // Find connected edges
+      const connectedEdges = currentResults.graph.edges.filter(
+        e => e.from === address || e.to === address
+      );
+      const connectedEdgeIds = new Set();
+      const connectedNodeIds = new Set([address]);
+
+      // Get signatures of connected edges and their node ids
+      allEdges.forEach((edge) => {
+        if (edge.from === address || edge.to === address) {
+          connectedEdgeIds.add(edge.id);
+          connectedNodeIds.add(edge.from);
+          connectedNodeIds.add(edge.to);
+        }
+      });
+
+      // Store original colors if first highlight
+      if (!isHighlightActive) {
+        allNodes.forEach((node) => {
+          originalNodeColors.set(node.id, { ...node.color });
+        });
+        allEdges.forEach((edge) => {
+          originalEdgeColors.set(edge.id, { ...edge.color });
+        });
+      }
+
+      // Update nodes - fade non-connected, highlight connected
+      const nodeUpdates = [];
+      allNodes.forEach((node) => {
+        if (node.id === address) {
+          // Highlight the selected node with a glowing effect
+          nodeUpdates.push({
+            id: node.id,
+            color: {
+              background: '#fbbf24',
+              border: '#f59e0b',
+              highlight: { background: '#fcd34d', border: '#f59e0b' }
+            },
+            borderWidth: 4,
+            shadow: { enabled: true, color: 'rgba(251, 191, 36, 0.8)', size: 20 },
+            size: 35
+          });
+        } else if (connectedNodeIds.has(node.id)) {
+          // Connected nodes - keep visible with slight highlight
+          nodeUpdates.push({
+            id: node.id,
+            opacity: 1,
+            color: originalNodeColors.get(node.id) || node.color,
+            borderWidth: 2
+          });
+        } else {
+          // Non-connected nodes - fade out significantly
+          nodeUpdates.push({
+            id: node.id,
+            color: {
+              background: 'rgba(100, 100, 100, 0.2)',
+              border: 'rgba(100, 100, 100, 0.3)',
+              highlight: { background: 'rgba(100, 100, 100, 0.3)', border: 'rgba(100, 100, 100, 0.4)' }
+            },
+            borderWidth: 1
+          });
+        }
+      });
+      allNodes.update(nodeUpdates);
+
+      // Update edges - fade non-connected, highlight connected
+      const edgeUpdates = [];
+      allEdges.forEach((edge) => {
+        if (edge.from === address || edge.to === address) {
+          // Connected edges - highlight with bright color
+          edgeUpdates.push({
+            id: edge.id,
+            color: { color: '#fbbf24', highlight: '#fcd34d' },
+            width: 4,
+            shadow: { enabled: true, color: 'rgba(251, 191, 36, 0.5)', size: 10 }
+          });
+        } else {
+          // Non-connected edges - fade out
+          edgeUpdates.push({
+            id: edge.id,
+            color: { color: 'rgba(100, 100, 100, 0.15)', highlight: 'rgba(100, 100, 100, 0.2)' },
+            width: 1,
+            shadow: { enabled: false }
+          });
+        }
+      });
+      allEdges.update(edgeUpdates);
+
+      isHighlightActive = true;
+
+      // Gently focus without aggressive zoom
+      network.focus(address, {
+        scale: network.getScale() < 0.8 ? 0.8 : network.getScale(),
+        animation: {
+          duration: 400,
+          easingFunction: 'easeOutQuad'
+        }
+      });
+
+      showToast(`Highlighted ${shortenAddress(address)} - Click empty area to reset`, 'success');
+    }
+
+    // Reset graph highlighting
+    function resetGraphHighlight() {
+      if (!isHighlightActive || !network) return;
+
+      const allNodes = network.body.data.nodes;
+      const allEdges = network.body.data.edges;
+
+      // Restore original node colors
+      const nodeUpdates = [];
+      allNodes.forEach((node) => {
+        const original = originalNodeColors.get(node.id);
+        if (original) {
+          nodeUpdates.push({
+            id: node.id,
+            color: original,
+            borderWidth: node.id.includes('dex') ? 3 : 1,
+            shadow: { enabled: true, color: 'rgba(0,0,0,0.5)', size: 10 },
+            size: node.shape === 'diamond' ? 25 : (node.shape === 'star' ? 35 : 15)
+          });
+        }
+      });
+      allNodes.update(nodeUpdates);
+
+      // Restore original edge colors
+      const edgeUpdates = [];
+      allEdges.forEach((edge) => {
+        const original = originalEdgeColors.get(edge.id);
+        if (original) {
+          edgeUpdates.push({
+            id: edge.id,
+            color: original,
+            width: 2,
+            shadow: { enabled: true }
+          });
+        }
+      });
+      allEdges.update(edgeUpdates);
+
+      isHighlightActive = false;
+      originalNodeColors.clear();
+      originalEdgeColors.clear();
+    }
+
+    // Draw graph for token-wide analysis
+    function drawTokenGraph(data) {
+      const placeholder = document.getElementById('graphPlaceholder');
+      if (placeholder) {
+        placeholder.style.display = 'none';
+      }
+
+      const nodesMap = new Map();
+      const edges = [];
+      const edgeSet = new Set();
+
+      const entityColors = {
+        wallet: '#3b82f6',
+        dex: '#22c55e',
+        cex: '#f59e0b',
+        unknown: '#6b7280'
+      };
+
+      // Build nodes from graph data
+      if (data.graph && data.graph.nodes) {
+        data.graph.nodes.forEach(node => {
+          const isDex = node.type === 'dex';
+          const nodeColor = entityColors[node.type] || entityColors.unknown;
+
+          // DEX nodes get special treatment: larger, diamond shape, show DEX name
+          const nodeLabel = isDex && node.name
+            ? `${node.name}\n${shortenAddress(node.address)}`
+            : shortenAddress(node.address);
+
+          const nodeTooltip = isDex && node.name
+            ? `${node.name} (DEX/Liquidity Pool)\n${node.address}`
+            : node.address;
+
+          nodesMap.set(node.id, {
+            id: node.id,
+            label: nodeLabel,
+            color: {
+              background: nodeColor,
+              border: isDex ? '#16a34a' : nodeColor, // Darker green border for DEX
+              highlight: { background: '#fff', border: nodeColor }
+            },
+            font: { color: '#fff', size: isDex ? 12 : 10, bold: isDex },
+            shape: isDex ? 'diamond' : 'dot',
+            size: isDex ? 25 : 15,  // DEX nodes are larger
+            title: nodeTooltip,
+            borderWidth: isDex ? 3 : 1
+          });
+        });
+      }
+
+      // Build edges from graph data with different colors for swaps (buy/sell) vs transfers
+      if (data.graph && data.graph.edges) {
+        data.graph.edges.forEach(edge => {
+          const edgeKey = `${edge.from}->${edge.to}`;
+          if (!edgeSet.has(edgeKey)) {
+            edgeSet.add(edgeKey);
+            const isSwap = edge.txType === 'swap';
+            const isBuy = edge.swapDirection === 'buy';
+            const isSell = edge.swapDirection === 'sell';
+            const dexName = edge.swapInfo?.dex || 'DEX';
+
+            // Determine edge color: green for buy, red for sell, white for transfers
+            let edgeColor;
+            if (isSwap) {
+              if (isBuy) {
+                edgeColor = { color: 'rgba(34, 197, 94, 0.7)', highlight: '#22c55e' };  // Green for buy
+              } else if (isSell) {
+                edgeColor = { color: 'rgba(239, 68, 68, 0.7)', highlight: '#ef4444' };  // Red for sell
+              } else {
+                edgeColor = { color: 'rgba(249, 115, 22, 0.6)', highlight: '#f97316' }; // Orange for unknown swap direction
+              }
+            } else {
+              edgeColor = { color: 'rgba(255,255,255,0.2)', highlight: '#7c3aed' };     // White for transfers
+            }
+
+            // Build tooltip text
+            let tooltipText;
+            if (isSwap) {
+              const direction = isBuy ? 'BUY' : (isSell ? 'SELL' : 'SWAP');
+              tooltipText = `${direction} (${dexName}): ${formatAmount(edge.amount)} tokens`;
+            } else {
+              tooltipText = `Transfer: ${formatAmount(edge.amount)} tokens`;
+            }
+
+            edges.push({
+              from: edge.from,
+              to: edge.to,
+              arrows: 'to',
+              color: edgeColor,
+              width: isSwap ? 2 : 1,
+              smooth: { type: 'curvedCW', roundness: 0.1 },
+              dashes: isSwap ? [5, 5] : false,  // Dashed line for swaps
+              title: tooltipText
+            });
+          }
+        });
+      }
+
+      const nodes = Array.from(nodesMap.values());
+      const container = document.getElementById('tokenFlowGraph');
+      const graphData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+
+      const options = {
+        nodes: { borderWidth: 1, shadow: true },
+        edges: { shadow: true },
+        physics: {
+          enabled: true,
+          solver: 'forceAtlas2Based',
+          forceAtlas2Based: {
+            gravitationalConstant: -30,
+            centralGravity: 0.005,
+            springLength: 100,
+            springConstant: 0.05
+          },
+          stabilization: { iterations: 150 }
+        },
+        interaction: { hover: true, tooltipDelay: 200 }
+      };
+
+      if (network) {
+        network.destroy();
+      }
+
+      network = new vis.Network(container, graphData, options);
+
+      network.on('click', function(params) {
+        if (params.nodes.length > 0) {
+          const nodeId = params.nodes[0];
+          showNodeContextMenu(params.pointer.DOM, nodeId);
+        } else {
+          // Clicked on empty space - reset highlighting
+          resetGraphHighlight();
+        }
+      });
+    }
+
+    // Show node context menu with copy option
+    function showNodeContextMenu(position, address) {
+      // Remove any existing context menu
+      const existingMenu = document.getElementById('nodeContextMenu');
+      if (existingMenu) {
+        existingMenu.remove();
+      }
+
+      // Create context menu
+      const menu = document.createElement('div');
+      menu.id = 'nodeContextMenu';
+      menu.style.cssText = `
+        position: fixed;
+        left: ${position.x}px;
+        top: ${position.y}px;
+        background: rgba(30, 30, 50, 0.95);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 8px;
+        padding: 8px 0;
+        z-index: 1000;
+        min-width: 180px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      `;
+
+      // Menu header with shortened address
+      const header = document.createElement('div');
+      header.style.cssText = `
+        padding: 8px 16px;
+        color: #888;
+        font-size: 0.75rem;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        margin-bottom: 4px;
+      `;
+      header.textContent = shortenAddress(address);
+      menu.appendChild(header);
+
+      // Copy Address option
+      const copyBtn = document.createElement('button');
+      copyBtn.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 10px 16px;
+        background: transparent;
+        border: none;
+        color: #fff;
+        font-size: 0.9rem;
+        cursor: pointer;
+        text-align: left;
+        transition: background 0.2s;
+      `;
+      copyBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        Copy Address
+      `;
+      copyBtn.onmouseover = () => copyBtn.style.background = 'rgba(124, 58, 237, 0.3)';
+      copyBtn.onmouseout = () => copyBtn.style.background = 'transparent';
+      copyBtn.onclick = async () => {
+        await copyToClipboard(address);
+        showToast('Address copied to clipboard!', 'success');
+        menu.remove();
+      };
+      menu.appendChild(copyBtn);
+
+      // View on Solscan option
+      const solscanBtn = document.createElement('button');
+      solscanBtn.style.cssText = copyBtn.style.cssText;
+      solscanBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
+        </svg>
+        View on Solscan
+      `;
+      solscanBtn.onmouseover = () => solscanBtn.style.background = 'rgba(124, 58, 237, 0.3)';
+      solscanBtn.onmouseout = () => solscanBtn.style.background = 'transparent';
+      solscanBtn.onclick = () => {
+        window.open(`https://solscan.io/account/${address}`, '_blank');
+        menu.remove();
+      };
+      menu.appendChild(solscanBtn);
+
+      document.body.appendChild(menu);
+
+      // Close menu when clicking elsewhere
+      const closeMenu = (e) => {
+        if (!menu.contains(e.target)) {
+          menu.remove();
+          document.removeEventListener('click', closeMenu);
+        }
+      };
+      // Delay adding the listener to prevent immediate closure
+      setTimeout(() => document.addEventListener('click', closeMenu), 100);
+    }
+
+    // Copy text to clipboard
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (err) {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+    }
+
+    // Show toast notification
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast ${type} show`;
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // Show/hide loading
+    function setLoading(show, text = 'Analyzing token flows...') {
+      document.getElementById('loading').classList.toggle('active', show);
+      document.getElementById('loadingText').textContent = text;
+      document.getElementById('analyzeBtn').disabled = show;
+    }
+
+    // Tab switching
+    function showTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+
+      const content = document.getElementById('resultsText');
+
+      if (!currentResults) {
+        content.textContent = 'No results yet. Run an analysis first.';
+        return;
+      }
+
+      switch(tab) {
+        case 'paths':
+          // Use innerHTML for token analysis (HTML content), textContent for wallet analysis
+          if (currentResults._analysisMode === 'token') {
+            content.innerHTML = formatTokenResults(currentResults);
+          } else {
+            content.textContent = formatPaths(currentResults);
+          }
+          break;
+        case 'risk':
+          content.textContent = formatRiskFlags(currentResults);
+          break;
+        case 'raw':
+          content.textContent = JSON.stringify(currentResults, null, 2);
+          break;
+      }
+    }
+
+    // Format paths for display
+    function formatPaths(data) {
+      if (!data.paths || data.paths.length === 0) {
+        return 'No token flow paths found.\n\nTry:\n- A different wallet address\n- Increasing the time range\n- Checking a wallet that has recent token activity';
+      }
+
+      let output = `Found ${data.paths.length} flow path(s)\n\n`;
+
+      data.paths.forEach((path, i) => {
+        output += `=== Path ${i + 1} ===\n`;
+        output += `Confidence: ${(path.confidenceScore * 100).toFixed(1)}%\n`;
+        output += `Intent: ${path.intent || 'unknown'}\n`;
+        output += `Risk: ${path.riskLevel || 'unknown'} (${path.riskScore || 0})\n\n`;
+
+        if (path.hops) {
+          path.hops.forEach((hop, j) => {
+            const arrow = j === 0 ? '' : '  ↓\n';
+            output += arrow;
+            output += `[${hop.entityType || 'wallet'}] ${shortenAddress(hop.address)}\n`;
+            if (hop.entityName) output += `  Name: ${hop.entityName}\n`;
+            output += `  In: ${formatAmount(hop.amountIn)} | Out: ${formatAmount(hop.amountOut)}\n`;
+          });
+        }
+        output += '\n';
+      });
+
+      return output;
+    }
+
+    // Format risk flags
+    function formatRiskFlags(data) {
+      if (data.flags && data.flags.length > 0) {
+        let output = 'Risk Flags Detected:\n\n';
+        data.flags.forEach(flag => {
+          output += `[${flag.severity.toUpperCase()}] ${flag.type}\n`;
+          if (flag.details) {
+            output += `  Details: ${JSON.stringify(flag.details)}\n`;
+          }
+          output += '\n';
+        });
+        return output;
+      }
+
+      if (data.riskScore !== undefined) {
+        return `Risk Score: ${data.riskScore}/100\nRisk Level: ${data.riskLevel}\n\nNo specific risk flags detected.`;
+      }
+
+      return 'No risk data available. Run a risk check first.';
+    }
+
+    // Helper functions
+    function shortenAddress(addr) {
+      if (!addr) return 'Unknown';
+      return addr.slice(0, 6) + '...' + addr.slice(-4);
+    }
+
+    function formatAmount(amount) {
+      if (!amount) return '0';
+      const num = parseFloat(amount) / 1e6; // Assuming 6 decimals for USDC
+      return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+
+    // Analyze token flow
+    async function analyzeFlow() {
+      const apiKey = document.getElementById('apiKey').value;
+      const walletAddress = document.getElementById('walletAddress').value;
+      const tokenMint = document.getElementById('tokenMint').value;
+      const direction = document.getElementById('direction').value;
+      const maxDepth = document.getElementById('maxDepth').value;
+      const timeRange = document.getElementById('timeRange').value;
+
+      if (!walletAddress) {
+        showToast('Please enter a wallet address', 'error');
+        return;
+      }
+
+      if (!apiKey) {
+        showToast('Please enter your API key', 'error');
+        return;
+      }
+
+      setLoading(true, 'Analyzing token flows...');
+
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/analyze/path`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey
+          },
+          body: JSON.stringify({
+            address: walletAddress,
+            token: tokenMint,
+            direction: direction,
+            maxDepth: parseInt(maxDepth),
+            timeRange: timeRange
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'API request failed');
+        }
+
+        const data = await response.json();
+        // Store the analyzed address and direction with results
+        data._analyzedAddress = walletAddress;
+        data._direction = direction;
+        currentResults = data;
+
+        // Update UI
+        updateInfoCards(data);
+        drawGraph(data);
+        document.getElementById('resultsText').textContent = formatPaths(data);
+
+        showToast('Analysis complete!', 'success');
+      } catch (error) {
+        showToast(error.message, 'error');
+        console.error('Analysis error:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // Check risk score
+    async function checkRisk() {
+      const apiKey = document.getElementById('apiKey').value;
+      const walletAddress = document.getElementById('walletAddress').value;
+      const tokenMint = document.getElementById('tokenMint').value;
+
+      if (!walletAddress) {
+        showToast('Please enter a wallet address', 'error');
+        return;
+      }
+
+      setLoading(true, 'Checking risk score...');
+
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/risk/${walletAddress}?token=${tokenMint}`, {
+          headers: {
+            'x-api-key': apiKey
+          }
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'API request failed');
+        }
+
+        const data = await response.json();
+        currentResults = { ...currentResults, ...data };
+
+        // Update risk display
+        const scoreEl = document.getElementById('riskScoreValue');
+        scoreEl.textContent = data.riskScore;
+        scoreEl.className = 'value risk-' + data.riskLevel;
+        document.getElementById('riskLevelText').textContent = data.riskLevel.toUpperCase() + ' risk';
+
+        // Show risk flags
+        const flagsContainer = document.getElementById('riskFlags');
+        flagsContainer.innerHTML = '';
+        if (data.flags && data.flags.length > 0) {
+          data.flags.forEach(flag => {
+            const flagEl = document.createElement('span');
+            flagEl.className = `risk-flag ${flag.severity}`;
+            flagEl.textContent = flag.type.replace(/_/g, ' ');
+            flagsContainer.appendChild(flagEl);
+          });
+        }
+
+        document.getElementById('resultsText').textContent = formatRiskFlags(data);
+        showToast('Risk check complete!', 'success');
+      } catch (error) {
+        showToast(error.message, 'error');
+        console.error('Risk check error:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // Update info cards
+    function updateInfoCards(data) {
+      document.getElementById('totalPaths').textContent = data.paths ? data.paths.length : 0;
+
+      if (data.summary) {
+        const flowIn = parseFloat(data.summary.netFlow?.in || 0) / 1e6;
+        const flowOut = parseFloat(data.summary.netFlow?.out || 0) / 1e6;
+        document.getElementById('netFlowIn').textContent = flowIn.toLocaleString();
+        document.getElementById('netFlowOut').textContent = flowOut.toLocaleString();
+      }
+    }
+
+    // Draw graph using vis.js
+    function drawGraph(data) {
+      // Remove placeholder safely
+      const placeholder = document.getElementById('graphPlaceholder');
+      if (placeholder) {
+        placeholder.style.display = 'none';
+      }
+
+      // Build nodes and edges from paths
+      const nodesMap = new Map();
+      const edges = [];
+      const edgeSet = new Set(); // Prevent duplicate edges
+
+      const entityColors = {
+        wallet: '#3b82f6',
+        dex: '#22c55e',
+        cex: '#f59e0b',
+        bridge: '#8b5cf6',
+        mixer: '#ef4444',
+        lending: '#06b6d4',
+        unknown: '#6b7280'
+      };
+
+      // Use stored values from when analysis was performed
+      const searchedWallet = data._analyzedAddress || document.getElementById('walletAddress').value;
+      const direction = data._direction || document.getElementById('direction').value;
+
+      // Always add the searched wallet as the center node
+      nodesMap.set(searchedWallet, {
+        id: searchedWallet,
+        label: shortenAddress(searchedWallet) + ' (You)',
+        color: {
+          background: '#7c3aed',
+          border: '#a855f7',
+          highlight: { background: '#a855f7', border: '#c084fc' }
+        },
+        font: { color: '#fff', size: 14, bold: true },
+        shape: 'star',
+        size: 35,
+        title: `Your wallet\n${searchedWallet}`
+      });
+
+      if (data.paths && data.paths.length > 0) {
+        data.paths.forEach((path, pathIndex) => {
+          if (path.hops && path.hops.length > 0) {
+            path.hops.forEach((hop, hopIndex) => {
+              // Add node for each hop
+              if (!nodesMap.has(hop.address)) {
+                nodesMap.set(hop.address, {
+                  id: hop.address,
+                  label: hop.entityName || shortenAddress(hop.address),
+                  color: {
+                    background: entityColors[hop.entityType] || entityColors.unknown,
+                    border: entityColors[hop.entityType] || entityColors.unknown,
+                    highlight: {
+                      background: '#fff',
+                      border: entityColors[hop.entityType] || entityColors.unknown
+                    }
+                  },
+                  font: { color: '#fff', size: 12 },
+                  shape: hop.entityType === 'dex' || hop.entityType === 'cex' ? 'diamond' : 'dot',
+                  size: 20,
+                  title: `${hop.entityType || 'wallet'}\n${hop.address}`
+                });
+              }
+            });
+
+            // Create edges based on direction
+            if (direction === 'backward') {
+              // Backward: sources -> searched wallet
+              // First hop is the immediate source
+              const firstHop = path.hops[0];
+              const edgeKey = `${firstHop.address}->${searchedWallet}`;
+              if (!edgeSet.has(edgeKey)) {
+                edgeSet.add(edgeKey);
+                edges.push({
+                  from: firstHop.address,
+                  to: searchedWallet,
+                  arrows: 'to',
+                  color: { color: 'rgba(34, 197, 94, 0.5)', highlight: '#22c55e' },
+                  width: 2,
+                  smooth: { type: 'curvedCW', roundness: 0.2 },
+                  title: `${formatAmount(firstHop.amountIn)} tokens`
+                });
+              }
+              // Connect hops in reverse (hop[1] -> hop[0], etc.)
+              for (let i = 1; i < path.hops.length; i++) {
+                const fromHop = path.hops[i];
+                const toHop = path.hops[i - 1];
+                const hopEdgeKey = `${fromHop.address}->${toHop.address}`;
+                if (!edgeSet.has(hopEdgeKey)) {
+                  edgeSet.add(hopEdgeKey);
+                  edges.push({
+                    from: fromHop.address,
+                    to: toHop.address,
+                    arrows: 'to',
+                    color: { color: 'rgba(255,255,255,0.3)', highlight: '#7c3aed' },
+                    width: 2,
+                    smooth: { type: 'curvedCW', roundness: 0.2 },
+                    title: `${formatAmount(fromHop.amountOut)} tokens`
+                  });
+                }
+              }
+            } else {
+              // Forward: searched wallet -> destinations
+              const firstHop = path.hops[0];
+              const edgeKey = `${searchedWallet}->${firstHop.address}`;
+              if (!edgeSet.has(edgeKey)) {
+                edgeSet.add(edgeKey);
+                edges.push({
+                  from: searchedWallet,
+                  to: firstHop.address,
+                  arrows: 'to',
+                  color: { color: 'rgba(239, 68, 68, 0.5)', highlight: '#ef4444' },
+                  width: 2,
+                  smooth: { type: 'curvedCW', roundness: 0.2 },
+                  title: `${formatAmount(firstHop.amountIn)} tokens`
+                });
+              }
+              // Connect consecutive hops
+              for (let i = 0; i < path.hops.length - 1; i++) {
+                const fromHop = path.hops[i];
+                const toHop = path.hops[i + 1];
+                const hopEdgeKey = `${fromHop.address}->${toHop.address}`;
+                if (!edgeSet.has(hopEdgeKey)) {
+                  edgeSet.add(hopEdgeKey);
+                  edges.push({
+                    from: fromHop.address,
+                    to: toHop.address,
+                    arrows: 'to',
+                    color: { color: 'rgba(255,255,255,0.3)', highlight: '#7c3aed' },
+                    width: 2,
+                    smooth: { type: 'curvedCW', roundness: 0.2 },
+                    title: `${formatAmount(fromHop.amountOut)} tokens`
+                  });
+                }
+              }
+            }
+          }
+        });
+      }
+
+      const nodes = Array.from(nodesMap.values());
+
+      // Create network
+      const container = document.getElementById('tokenFlowGraph');
+      const graphData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+
+      const options = {
+        nodes: {
+          borderWidth: 2,
+          shadow: true
+        },
+        edges: {
+          shadow: true
+        },
+        physics: {
+          enabled: true,
+          solver: 'forceAtlas2Based',
+          forceAtlas2Based: {
+            gravitationalConstant: -50,
+            centralGravity: 0.01,
+            springLength: 150,
+            springConstant: 0.08
+          },
+          stabilization: {
+            iterations: 100
+          }
+        },
+        interaction: {
+          hover: true,
+          tooltipDelay: 200
+        }
+      };
+
+      if (network) {
+        network.destroy();
+      }
+
+      network = new vis.Network(container, graphData, options);
+
+      // Click handler - show context menu with copy option
+      network.on('click', function(params) {
+        if (params.nodes.length > 0) {
+          const nodeId = params.nodes[0];
+          showNodeContextMenu(params.pointer.DOM, nodeId);
+        } else {
+          // Clicked on empty space - reset highlighting
+          resetGraphHighlight();
+        }
+      });
+    }
+  </script>
+</body>
+</html>
