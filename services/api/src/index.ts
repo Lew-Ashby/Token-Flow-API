@@ -317,6 +317,77 @@ app.post(
 );
 
 // ============================================================================
+// APIX PUBLIC ENDPOINTS (No API Key Required - Pay Per Call via APIX)
+// ============================================================================
+
+// Risk Assessment - Public for APIX users
+app.get(
+  '/apix/risk/:address',
+  rateLimiter,
+  validateSolanaAddress('address'),
+  (req, res) => analysisController.getRiskAssessment(req, res)
+);
+
+// Entity Lookup - Public for APIX users
+app.get(
+  '/apix/entity/:address',
+  rateLimiter,
+  validateSolanaAddress('address'),
+  async (req, res) => {
+    const { address } = req.params;
+    const entity = await entityService.getEntity(address);
+    if (entity) {
+      res.json({
+        success: true,
+        data: entity,
+        timestamp: new Date().toISOString(),
+      });
+    } else {
+      res.json({
+        success: true,
+        data: null,
+        message: 'Address not found in entity database',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+);
+
+// Path Analysis - Public for APIX users
+app.post(
+  '/apix/analyze/path',
+  rateLimiter,
+  validateSolanaAddress('address'),
+  validateTokenMint('token'),
+  validateMaxDepth,
+  validateTimeRange,
+  (req, res) => analysisController.analyzePath(req, res)
+);
+
+// Token Analysis - Public for APIX users
+app.post(
+  '/apix/analyze/token',
+  rateLimiter,
+  validateTokenMint('token'),
+  (req, res) => analysisController.analyzeToken(req, res)
+);
+
+// Transaction Intent - Public for APIX users
+app.get(
+  '/apix/intent/:signature',
+  rateLimiter,
+  (req, res) => analysisController.getTransactionIntent(req, res)
+);
+
+// Trace Transactions - Public for APIX users
+app.post(
+  '/apix/trace',
+  rateLimiter,
+  validateSignatures,
+  (req, res) => analysisController.traceTransactions(req, res)
+);
+
+// ============================================================================
 // USAGE TRACKING & HEADERS
 // ============================================================================
 
