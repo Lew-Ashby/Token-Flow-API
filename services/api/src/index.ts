@@ -353,10 +353,17 @@ app.get(
   }
 );
 
-// Path Analysis - Public for APIX users
-app.post(
+// Path Analysis - Public for APIX users (supports both GET and POST)
+app.all(
   '/apix/analyze/path',
   rateLimiter,
+  (req, res, next) => {
+    // For GET requests, move query params to body
+    if (req.method === 'GET') {
+      req.body = { ...req.query };
+    }
+    next();
+  },
   validateSolanaAddress('address'),
   validateTokenMint('token'),
   validateMaxDepth,
@@ -364,10 +371,16 @@ app.post(
   (req, res) => analysisController.analyzePath(req, res)
 );
 
-// Token Analysis - Public for APIX users
-app.post(
+// Token Analysis - Public for APIX users (supports both GET and POST)
+app.all(
   '/apix/analyze/token',
   rateLimiter,
+  (req, res, next) => {
+    if (req.method === 'GET') {
+      req.body = { ...req.query };
+    }
+    next();
+  },
   validateTokenMint('token'),
   (req, res) => analysisController.analyzeToken(req, res)
 );
@@ -379,10 +392,20 @@ app.get(
   (req, res) => analysisController.getTransactionIntent(req, res)
 );
 
-// Trace Transactions - Public for APIX users
-app.post(
+// Trace Transactions - Public for APIX users (supports both GET and POST)
+app.all(
   '/apix/trace',
   rateLimiter,
+  (req, res, next) => {
+    if (req.method === 'GET') {
+      req.body = { ...req.query };
+      // Handle signatures as comma-separated string for GET
+      if (typeof req.body.signatures === 'string') {
+        req.body.signatures = req.body.signatures.split(',');
+      }
+    }
+    next();
+  },
   validateSignatures,
   (req, res) => analysisController.traceTransactions(req, res)
 );
