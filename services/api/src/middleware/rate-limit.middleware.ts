@@ -82,8 +82,44 @@ export async function rateLimiter(
   res: Response,
   next: NextFunction
 ): Promise<void> {
+  // For APIX public routes (no API key), use IP-based rate limiting
   if (!req.apiKeyData) {
-    res.status(401).json({ error: 'API key required' });
+    // Allow public APIX routes with IP-based limiting
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const publicLimit = 30; // 30 requests per minute for public routes
+
+    // Simple in-memory rate limiting for public routes
+    const now = Date.now();
+    const windowMs = 60000; // 1 minute
+    const key = `public:${ip}`;
+
+    if (!publicRateLimits.has(key)) {
+      publicRateLimits.set(key, { count: 1, resetAt: now + windowMs });
+      next();
+      return;
+    }
+
+    const limit = publicRateLimits.get(key)!;
+
+    if (now > limit.resetAt) {
+      limit.count = 1;
+      limit.resetAt = now + windowMs;
+      next();
+      return;
+    }
+
+    if (limit.count >= publicLimit) {
+      const retryAfter = Math.ceil((limit.resetAt - now) / 1000);
+      res.status(429).json({
+        error: 'Rate limit exceeded',
+        retryAfter,
+        limit: publicLimit,
+      });
+      return;
+    }
+
+    limit.count++;
+    next();
     return;
   }
 
@@ -114,3 +150,16 @@ export async function rateLimiter(
     });
   }
 }
+
+// Simple in-memory store for public rate limiting
+const publicRateLimits = new Map<string, { count: number; resetAt: number }>();
+
+// Clean up old entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of publicRateLimits.entries()) {
+    if (now > value.resetAt) {
+      publicRateLimits.delete(key);
+    }
+  }
+}, 300000);
