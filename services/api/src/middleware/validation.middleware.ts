@@ -106,7 +106,7 @@ export function validateTimeRange(req: Request, res: Response, next: NextFunctio
 
 export function validateSignatures(req: Request, res: Response, next: NextFunction): void {
   const signatures = req.body.signatures;
-  const BASE58_REGEX = /^[1-9A-HJ-NP-Za-km-z]{88}$/;
+  const BASE58_REGEX = /^[1-9A-HJ-NP-Za-km-z]{87,88}$/;
 
   if (!Array.isArray(signatures)) {
     res.status(400).json({
@@ -134,7 +134,7 @@ export function validateSignatures(req: Request, res: Response, next: NextFuncti
     if (typeof sig !== 'string' || !BASE58_REGEX.test(sig)) {
       res.status(400).json({
         error: 'Invalid signature format',
-        message: 'Signatures must be 88-character base58 strings (no 0, O, I, l)',
+        message: 'Signatures must be 87-88 character base58 strings (no 0, O, I, l)',
       });
       return;
     }
