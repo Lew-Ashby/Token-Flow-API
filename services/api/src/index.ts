@@ -123,24 +123,12 @@ app.use(helmet({
   referrerPolicy: { policy: 'same-origin' },
 }));
 
-// Secure CORS configuration - whitelist trusted origins only
-const ALLOWED_ORIGINS = process.env.NODE_ENV === 'production'
-  ? (process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [])
-  : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:8080'];
-
+// CORS configuration - allow all origins for APIX marketplace
+// APIX handles authentication/payment, so we allow all origins
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, Postman, curl)
-    if (!origin) return callback(null, true);
-
-    if (ALLOWED_ORIGINS.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS policy violation: ${origin} not allowed`));
-    }
-  },
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'x-api-key'],
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'x-api-key', 'Accept'],
   credentials: false,
   maxAge: 86400, // Cache preflight for 24h
 }));
@@ -408,6 +396,60 @@ app.all(
   },
   validateSignatures,
   (req, res) => analysisController.traceTransactions(req, res)
+);
+
+// ============================================================================
+// APIX V2 ENDPOINTS (Exact paths matching APIX registration)
+// ============================================================================
+
+// Token Activity Analysis - APIX V2 compatible
+// Maps APIX params: tokenAddress -> token, txLimit -> limit
+app.all(
+  '/api/token-flow-apiv2/token-activity-analysis',
+  rateLimiter,
+  (req, res, next) => {
+    if (req.method === 'GET') {
+      req.body = { ...req.query };
+    }
+    // Map APIX parameter names to internal names
+    if (req.body.tokenAddress) {
+      req.body.token = req.body.tokenAddress;
+    }
+    if (req.body.txLimit) {
+      req.body.limit = parseInt(req.body.txLimit, 10);
+    }
+    next();
+  },
+  validateTokenMint('token'),
+  (req, res) => analysisController.analyzeToken(req, res)
+);
+
+// Flow Path Analysis - APIX V2 compatible
+// Maps APIX params: Address -> address, Token -> token, Direction -> direction
+app.all(
+  '/api/token-flow-apiv2/flow-path-analysis',
+  rateLimiter,
+  (req, res, next) => {
+    if (req.method === 'GET') {
+      req.body = { ...req.query };
+    }
+    // Map APIX parameter names to internal names (case-insensitive)
+    if (req.body.Address) {
+      req.body.address = req.body.Address;
+    }
+    if (req.body.Token) {
+      req.body.token = req.body.Token;
+    }
+    if (req.body.Direction) {
+      req.body.direction = req.body.Direction;
+    }
+    next();
+  },
+  validateSolanaAddress('address'),
+  validateTokenMint('token'),
+  validateMaxDepth,
+  validateTimeRange,
+  (req, res) => analysisController.analyzePath(req, res)
 );
 
 // ============================================================================
