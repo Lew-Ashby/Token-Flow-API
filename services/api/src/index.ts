@@ -590,9 +590,14 @@ const tokenActivityHandler = [
 
 // Register all possible slug variations for Token Activity Analysis
 app.all('/analyze-token-activity', ...tokenActivityHandler);
+app.all('/analyze-token-activities', ...tokenActivityHandler);  // plural
 app.all('/token-activity-analysis', ...tokenActivityHandler);
 app.all('/token-activity', ...tokenActivityHandler);
+app.all('/token-activities', ...tokenActivityHandler);  // plural
 app.all('/analyze-token', ...tokenActivityHandler);
+app.all('/token-analysis', ...tokenActivityHandler);
+app.all('/analyzeTokenActivity', ...tokenActivityHandler);  // camelCase
+app.all('/tokenActivityAnalysis', ...tokenActivityHandler);  // camelCase
 
 // Flow Path Analysis - APIX slug endpoint (multiple slug variations)
 // APIX registration shows slug: analyze-token-flow-pa... (probably analyze-token-flow-path)
@@ -634,6 +639,11 @@ app.all('/analyze-token-flow-path', ...flowPathHandler);
 app.all('/analyze-token-flow-paths', ...flowPathHandler);
 app.all('/flow-path-analysis', ...flowPathHandler);
 app.all('/token-flow-path', ...flowPathHandler);
+app.all('/token-flow-paths', ...flowPathHandler);  // plural
+app.all('/analyze-flow-path', ...flowPathHandler);
+app.all('/flow-analysis', ...flowPathHandler);
+app.all('/analyzeTokenFlowPath', ...flowPathHandler);  // camelCase
+app.all('/flowPathAnalysis', ...flowPathHandler);  // camelCase
 
 // ============================================================================
 // USAGE TRACKING & HEADERS
