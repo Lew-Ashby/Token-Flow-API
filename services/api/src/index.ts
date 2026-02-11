@@ -509,13 +509,26 @@ app.all(
 );
 
 // Flow Path Analysis - APIX slug endpoint
-// APIX calls: /flow-path-analysis?address=...&token=...
+// APIX calls: /flow-path-analysis?Address=...&Token=...&Direction=...
 app.all(
   '/flow-path-analysis',
   rateLimiter,
   (req, res, next) => {
     if (req.method === 'GET') {
       req.body = { ...req.query };
+    }
+    // Map APIX parameter names (capitals) to internal names (lowercase)
+    // Address -> address
+    if (req.body.Address && !req.body.address) {
+      req.body.address = req.body.Address;
+    }
+    // Token -> token
+    if (req.body.Token && !req.body.token) {
+      req.body.token = req.body.Token;
+    }
+    // Direction -> direction
+    if (req.body.Direction && !req.body.direction) {
+      req.body.direction = req.body.Direction;
     }
     next();
   },
