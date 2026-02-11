@@ -220,6 +220,7 @@ app.get('/health', async (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     service: 'token-flow-api',
+    version: '2.1.0',  // Added to track deployments
   });
 });
 
