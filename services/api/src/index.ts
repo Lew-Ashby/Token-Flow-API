@@ -403,7 +403,7 @@ app.all(
 // ============================================================================
 
 // Token Activity Analysis - APIX V2 compatible
-// Maps APIX params: tokenAddress -> token, txLimit -> limit
+// Maps all APIX param variations: tokenAddress/Token_Address/token_address -> token
 app.all(
   '/api/token-flow-apiv2/token-activity-analysis',
   rateLimiter,
@@ -411,12 +411,21 @@ app.all(
     if (req.method === 'GET') {
       req.body = { ...req.query };
     }
-    // Map APIX parameter names to internal names
-    if (req.body.tokenAddress) {
-      req.body.token = req.body.tokenAddress;
+    // Map all possible APIX parameter name variations to internal names
+    // APIX may use: tokenAddress, Token_Address, token_address, TokenAddress, "Token Address"
+    const tokenParam = req.body.tokenAddress || req.body.Token_Address ||
+                       req.body.token_address || req.body.TokenAddress ||
+                       req.body['Token Address'] || req.body.token;
+    if (tokenParam) {
+      req.body.token = tokenParam;
     }
-    if (req.body.txLimit) {
-      req.body.limit = parseInt(req.body.txLimit, 10);
+
+    // Map txLimit variations: txLimit, Tx_Limit, tx_limit, TxLimit, "Tx Limit"
+    const limitParam = req.body.txLimit || req.body.Tx_Limit ||
+                       req.body.tx_limit || req.body.TxLimit ||
+                       req.body['Tx Limit'] || req.body.limit;
+    if (limitParam) {
+      req.body.limit = parseInt(String(limitParam), 10);
     }
     next();
   },
@@ -425,7 +434,7 @@ app.all(
 );
 
 // Flow Path Analysis - APIX V2 compatible
-// Maps APIX params: Address -> address, Token -> token, Direction -> direction
+// Maps all APIX param variations to internal names
 app.all(
   '/api/token-flow-apiv2/flow-path-analysis',
   rateLimiter,
@@ -433,15 +442,41 @@ app.all(
     if (req.method === 'GET') {
       req.body = { ...req.query };
     }
-    // Map APIX parameter names to internal names (case-insensitive)
-    if (req.body.Address) {
-      req.body.address = req.body.Address;
+    // Map all possible APIX parameter name variations to internal names
+    // Address variations
+    const addressParam = req.body.Address || req.body.address ||
+                         req.body.wallet_address || req.body.walletAddress ||
+                         req.body['Wallet Address'];
+    if (addressParam) {
+      req.body.address = addressParam;
     }
-    if (req.body.Token) {
-      req.body.token = req.body.Token;
+
+    // Token variations
+    const tokenParam = req.body.Token || req.body.token ||
+                       req.body.token_address || req.body.tokenAddress ||
+                       req.body['Token Address'] || req.body.Token_Address;
+    if (tokenParam) {
+      req.body.token = tokenParam;
     }
-    if (req.body.Direction) {
-      req.body.direction = req.body.Direction;
+
+    // Direction variations
+    const directionParam = req.body.Direction || req.body.direction;
+    if (directionParam) {
+      req.body.direction = directionParam;
+    }
+
+    // maxDepth variations
+    const depthParam = req.body.maxDepth || req.body.max_depth ||
+                       req.body.Max_Depth || req.body['Max Depth'];
+    if (depthParam) {
+      req.body.maxDepth = parseInt(String(depthParam), 10);
+    }
+
+    // timeRange variations
+    const timeParam = req.body.timeRange || req.body.time_range ||
+                      req.body.Time_Range || req.body['Time Range'];
+    if (timeParam) {
+      req.body.timeRange = timeParam;
     }
     next();
   },
