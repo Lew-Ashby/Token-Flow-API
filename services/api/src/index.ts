@@ -166,7 +166,21 @@ app.use((req, res, next) => {
 });
 
 // Content-Type validation for POST/PUT/PATCH requests
+// Skip validation for APIX public endpoints (they may send various content types)
 function validateContentType(req: express.Request, res: express.Response, next: express.NextFunction) {
+  // Skip Content-Type validation for APIX slug endpoints and public APIX routes
+  const apixPaths = [
+    '/analyze-token-activity', '/token-activity-analysis', '/token-activity', '/analyze-token',
+    '/analyze-token-flow-path', '/analyze-token-flow-paths', '/flow-path-analysis', '/token-flow-path',
+    '/apix/', '/api/token-flow-apiv2/'
+  ];
+
+  const isApixEndpoint = apixPaths.some(path => req.path.startsWith(path) || req.path === path.replace(/\/$/, ''));
+
+  if (isApixEndpoint) {
+    return next();
+  }
+
   if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
     const contentType = req.headers['content-type'];
 
@@ -406,10 +420,20 @@ app.all(
 // Maps all APIX param variations: tokenAddress/Token_Address/token_address -> token
 app.all(
   '/api/token-flow-apiv2/token-activity-analysis',
+  logApixRequest('V2-Token-Activity'),
   rateLimiter,
   (req, res, next) => {
     if (req.method === 'GET') {
       req.body = { ...req.query };
+    }
+    // Also try to parse body if it's a string
+    if (typeof req.body === 'string') {
+      try {
+        req.body = JSON.parse(req.body);
+      } catch {
+        const params = new URLSearchParams(req.body);
+        req.body = Object.fromEntries(params.entries());
+      }
     }
     // Map all possible APIX parameter name variations to internal names
     // APIX may use: tokenAddress, Token_Address, token_address, TokenAddress, "Token Address"
@@ -427,6 +451,7 @@ app.all(
     if (limitParam) {
       req.body.limit = parseInt(String(limitParam), 10);
     }
+    console.log(`[APIX V2-Token-Activity] Processed body: ${JSON.stringify(req.body)}`);
     next();
   },
   validateTokenMint('token'),
@@ -437,10 +462,20 @@ app.all(
 // Maps all APIX param variations to internal names
 app.all(
   '/api/token-flow-apiv2/flow-path-analysis',
+  logApixRequest('V2-Flow-Path'),
   rateLimiter,
   (req, res, next) => {
     if (req.method === 'GET') {
       req.body = { ...req.query };
+    }
+    // Also try to parse body if it's a string
+    if (typeof req.body === 'string') {
+      try {
+        req.body = JSON.parse(req.body);
+      } catch {
+        const params = new URLSearchParams(req.body);
+        req.body = Object.fromEntries(params.entries());
+      }
     }
     // Map all possible APIX parameter name variations to internal names
     // Address variations
@@ -478,6 +513,7 @@ app.all(
     if (timeParam) {
       req.body.timeRange = timeParam;
     }
+    console.log(`[APIX V2-Flow-Path] Processed body: ${JSON.stringify(req.body)}`);
     next();
   },
   validateSolanaAddress('address'),
@@ -492,16 +528,48 @@ app.all(
 // APIX constructs URL as: {endpoint_url}/{api_slug}?params
 // ============================================================================
 
+// Debug logging middleware for APIX requests
+function logApixRequest(endpointName: string) {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.log(`[APIX ${endpointName}] Request received:`);
+    console.log(`  - Method: ${req.method}`);
+    console.log(`  - Path: ${req.path}`);
+    console.log(`  - URL: ${req.url}`);
+    console.log(`  - Query: ${JSON.stringify(req.query)}`);
+    console.log(`  - Body: ${JSON.stringify(req.body)}`);
+    console.log(`  - Headers: ${JSON.stringify({
+      'content-type': req.headers['content-type'],
+      'accept': req.headers['accept'],
+      'origin': req.headers['origin'],
+      'referer': req.headers['referer'],
+    })}`);
+    next();
+  };
+}
+
 // Token Activity Analysis - APIX slug endpoint (multiple slug variations)
 // APIX registration shows slug: analyze-token-activit... (probably analyze-token-activity)
 // Parameters: token, limit (lowercase)
 const tokenActivityHandler = [
+  logApixRequest('Token-Activity'),
   rateLimiter,
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // Handle both GET query params and POST body
     if (req.method === 'GET') {
       req.body = { ...req.query };
     }
+    // Also try to parse body if it's a string (APIX might send weird formats)
+    if (typeof req.body === 'string') {
+      try {
+        req.body = JSON.parse(req.body);
+      } catch {
+        // If not JSON, try to parse as URL params
+        const params = new URLSearchParams(req.body);
+        req.body = Object.fromEntries(params.entries());
+      }
+    }
     // APIX sends 'token' and 'limit' directly (from registration config)
+    console.log(`[APIX Token-Activity] Processed body: ${JSON.stringify(req.body)}`);
     next();
   },
   validateTokenMint('token'),
@@ -518,15 +586,28 @@ app.all('/analyze-token', ...tokenActivityHandler);
 // APIX registration shows slug: analyze-token-flow-pa... (probably analyze-token-flow-path)
 // Parameters: address, token, direction, maxDepth, timeRange (all lowercase/camelCase)
 const flowPathHandler = [
+  logApixRequest('Flow-Path'),
   rateLimiter,
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // Handle both GET query params and POST body
     if (req.method === 'GET') {
       req.body = { ...req.query };
+    }
+    // Also try to parse body if it's a string (APIX might send weird formats)
+    if (typeof req.body === 'string') {
+      try {
+        req.body = JSON.parse(req.body);
+      } catch {
+        // If not JSON, try to parse as URL params
+        const params = new URLSearchParams(req.body);
+        req.body = Object.fromEntries(params.entries());
+      }
     }
     // Map any capital letter variations just in case
     if (req.body.Address && !req.body.address) req.body.address = req.body.Address;
     if (req.body.Token && !req.body.token) req.body.token = req.body.Token;
     if (req.body.Direction && !req.body.direction) req.body.direction = req.body.Direction;
+    console.log(`[APIX Flow-Path] Processed body: ${JSON.stringify(req.body)}`);
     next();
   },
   validateSolanaAddress('address'),
@@ -552,6 +633,42 @@ app.all('/token-flow-path', ...flowPathHandler);
 app.use('/api/v1/*', authenticateApiKey);
 app.use('/api/v1/*', usageTrackingMiddleware);
 app.use('/api/v1/*', addUsageHeaders);
+
+// ============================================================================
+// CATCH-ALL ROUTE FOR DEBUGGING
+// Log any requests that don't match known routes (helps identify APIX URL patterns)
+// ============================================================================
+app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Skip if this is already handled (has status code set)
+  if (res.headersSent) {
+    return next();
+  }
+
+  console.log(`[UNMATCHED ROUTE] Request to unknown path:`);
+  console.log(`  - Method: ${req.method}`);
+  console.log(`  - Path: ${req.path}`);
+  console.log(`  - URL: ${req.url}`);
+  console.log(`  - Query: ${JSON.stringify(req.query)}`);
+  console.log(`  - Body: ${JSON.stringify(req.body)}`);
+  console.log(`  - Headers: ${JSON.stringify({
+    'content-type': req.headers['content-type'],
+    'accept': req.headers['accept'],
+    'origin': req.headers['origin'],
+    'host': req.headers['host'],
+  })}`);
+
+  res.status(404).json({
+    error: 'Not Found',
+    message: `Path ${req.path} not found`,
+    availableEndpoints: [
+      '/analyze-token-activity?token=<mint>&limit=<number>',
+      '/analyze-token-flow-path?address=<wallet>&token=<mint>&direction=forward',
+      '/api/token-flow-apiv2/token-activity-analysis?token=<mint>&limit=<number>',
+      '/api/token-flow-apiv2/flow-path-analysis?address=<wallet>&token=<mint>',
+    ],
+    requestId: req.requestId,
+  });
+});
 
 // ============================================================================
 // ERROR HANDLING
