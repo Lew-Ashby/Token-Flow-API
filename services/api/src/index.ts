@@ -492,12 +492,12 @@ app.all(
 // APIX constructs URL as: {endpoint_url}/{api_slug}?params
 // ============================================================================
 
-// Token Activity Analysis - APIX slug endpoint
-// APIX calls: /analyze-token-activity?token=...&limit=...
-app.all(
-  '/analyze-token-activity',
+// Token Activity Analysis - APIX slug endpoint (multiple slug variations)
+// APIX registration shows slug: analyze-token-activit... (probably analyze-token-activity)
+// Parameters: token, limit (lowercase)
+const tokenActivityHandler = [
   rateLimiter,
-  (req, res, next) => {
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (req.method === 'GET') {
       req.body = { ...req.query };
     }
@@ -505,39 +505,42 @@ app.all(
     next();
   },
   validateTokenMint('token'),
-  (req, res) => analysisController.analyzeToken(req, res)
-);
+  (req: express.Request, res: express.Response) => analysisController.analyzeToken(req, res)
+];
 
-// Flow Path Analysis - APIX slug endpoint
-// APIX calls: /flow-path-analysis?Address=...&Token=...&Direction=...
-app.all(
-  '/flow-path-analysis',
+// Register all possible slug variations for Token Activity Analysis
+app.all('/analyze-token-activity', ...tokenActivityHandler);
+app.all('/token-activity-analysis', ...tokenActivityHandler);
+app.all('/token-activity', ...tokenActivityHandler);
+app.all('/analyze-token', ...tokenActivityHandler);
+
+// Flow Path Analysis - APIX slug endpoint (multiple slug variations)
+// APIX registration shows slug: analyze-token-flow-pa... (probably analyze-token-flow-path)
+// Parameters: address, token, direction, maxDepth, timeRange (all lowercase/camelCase)
+const flowPathHandler = [
   rateLimiter,
-  (req, res, next) => {
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (req.method === 'GET') {
       req.body = { ...req.query };
     }
-    // Map APIX parameter names (capitals) to internal names (lowercase)
-    // Address -> address
-    if (req.body.Address && !req.body.address) {
-      req.body.address = req.body.Address;
-    }
-    // Token -> token
-    if (req.body.Token && !req.body.token) {
-      req.body.token = req.body.Token;
-    }
-    // Direction -> direction
-    if (req.body.Direction && !req.body.direction) {
-      req.body.direction = req.body.Direction;
-    }
+    // Map any capital letter variations just in case
+    if (req.body.Address && !req.body.address) req.body.address = req.body.Address;
+    if (req.body.Token && !req.body.token) req.body.token = req.body.Token;
+    if (req.body.Direction && !req.body.direction) req.body.direction = req.body.Direction;
     next();
   },
   validateSolanaAddress('address'),
   validateTokenMint('token'),
   validateMaxDepth,
   validateTimeRange,
-  (req, res) => analysisController.analyzePath(req, res)
-);
+  (req: express.Request, res: express.Response) => analysisController.analyzePath(req, res)
+];
+
+// Register all possible slug variations for Flow Path Analysis
+app.all('/analyze-token-flow-path', ...flowPathHandler);
+app.all('/analyze-token-flow-paths', ...flowPathHandler);
+app.all('/flow-path-analysis', ...flowPathHandler);
+app.all('/token-flow-path', ...flowPathHandler);
 
 // ============================================================================
 // USAGE TRACKING & HEADERS
