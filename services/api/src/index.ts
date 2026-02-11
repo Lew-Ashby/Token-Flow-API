@@ -369,14 +369,53 @@ app.get(
 );
 
 // Path Analysis - Public for APIX users (supports both GET and POST)
+// APIX sends: "Address" (capital A), "Token" (capital T), "Direction", etc.
 app.all(
   '/apix/analyze/path',
   rateLimiter,
   (req, res, next) => {
+    console.log(`[APIX /apix/analyze/path] Raw query: ${JSON.stringify(req.query)}`);
     // For GET requests, move query params to body
     if (req.method === 'GET') {
       req.body = { ...req.query };
     }
+
+    // Map APIX parameter names (capital letters) to internal names (lowercase)
+    // Address variations
+    const addressParam = req.body.Address || req.body['Wallet Address'] ||
+                         req.body.address || req.body.walletAddress;
+    if (addressParam) {
+      req.body.address = addressParam;
+    }
+
+    // Token variations
+    const tokenParam = req.body.Token || req.body['Token Address'] ||
+                       req.body.token || req.body.tokenAddress;
+    if (tokenParam) {
+      req.body.token = tokenParam;
+    }
+
+    // Direction variations
+    const directionParam = req.body.Direction || req.body.direction;
+    if (directionParam) {
+      req.body.direction = directionParam;
+    }
+
+    // maxDepth variations
+    const depthParam = req.body.maxDepth || req.body.MaxDepth ||
+                       req.body['Max Depth'] || req.body.max_depth;
+    if (depthParam) {
+      req.body.maxDepth = parseInt(String(depthParam), 10);
+    }
+
+    // timeRange variations
+    const timeParam = req.body.timeRange || req.body.TimeRange ||
+                      req.body['Time Range'] || req.body.time_range;
+    if (timeParam) {
+      req.body.timeRange = timeParam;
+    }
+
+    console.log(`[APIX /apix/analyze/path] Mapped body: ${JSON.stringify(req.body)}`);
     next();
   },
   validateSolanaAddress('address'),
