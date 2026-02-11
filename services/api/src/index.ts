@@ -203,6 +203,18 @@ app.use((req, res, next) => {
   next();
 });
 
+// ============================================================================
+// GLOBAL REQUEST LOGGER - Log ALL incoming requests for debugging
+// ============================================================================
+app.use((req, res, next) => {
+  // Log every single request to help identify what APIX is calling
+  console.log(`[INCOMING REQUEST] ${req.method} ${req.path}`);
+  console.log(`  - Full URL: ${req.url}`);
+  console.log(`  - Query: ${JSON.stringify(req.query)}`);
+  console.log(`  - Host: ${req.headers.host}`);
+  next();
+});
+
 app.get('/health', async (req, res) => {
   res.json({
     status: 'ok',
