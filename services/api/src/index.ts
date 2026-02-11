@@ -387,13 +387,31 @@ app.all(
 );
 
 // Token Analysis - Public for APIX users (supports both GET and POST)
+// APIX sends: "Token Address" (with space) and "Tx Limit"
 app.all(
   '/apix/analyze/token',
   rateLimiter,
   (req, res, next) => {
+    console.log(`[APIX /apix/analyze/token] Raw query: ${JSON.stringify(req.query)}`);
     if (req.method === 'GET') {
       req.body = { ...req.query };
     }
+    // Map APIX parameter names to internal names
+    // APIX sends: "Token Address" (with space!), "Tx Limit"
+    const tokenParam = req.body['Token Address'] || req.body['Token+Address'] ||
+                       req.body.tokenAddress || req.body.token_address ||
+                       req.body.TokenAddress || req.body.token;
+    if (tokenParam) {
+      req.body.token = tokenParam;
+    }
+
+    const limitParam = req.body['Tx Limit'] || req.body['Tx+Limit'] ||
+                       req.body.txLimit || req.body.tx_limit ||
+                       req.body.TxLimit || req.body.limit;
+    if (limitParam) {
+      req.body.limit = parseInt(String(limitParam), 10);
+    }
+    console.log(`[APIX /apix/analyze/token] Mapped body: ${JSON.stringify(req.body)}`);
     next();
   },
   validateTokenMint('token'),
