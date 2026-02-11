@@ -488,6 +488,45 @@ app.all(
 );
 
 // ============================================================================
+// APIX SLUG ENDPOINTS (Root level - matching APIX API slugs)
+// APIX constructs URL as: {endpoint_url}/{api_slug}?params
+// ============================================================================
+
+// Token Activity Analysis - APIX slug endpoint
+// APIX calls: /analyze-token-activity?token=...&limit=...
+app.all(
+  '/analyze-token-activity',
+  rateLimiter,
+  (req, res, next) => {
+    if (req.method === 'GET') {
+      req.body = { ...req.query };
+    }
+    // APIX sends 'token' and 'limit' directly (from registration config)
+    next();
+  },
+  validateTokenMint('token'),
+  (req, res) => analysisController.analyzeToken(req, res)
+);
+
+// Flow Path Analysis - APIX slug endpoint
+// APIX calls: /flow-path-analysis?address=...&token=...
+app.all(
+  '/flow-path-analysis',
+  rateLimiter,
+  (req, res, next) => {
+    if (req.method === 'GET') {
+      req.body = { ...req.query };
+    }
+    next();
+  },
+  validateSolanaAddress('address'),
+  validateTokenMint('token'),
+  validateMaxDepth,
+  validateTimeRange,
+  (req, res) => analysisController.analyzePath(req, res)
+);
+
+// ============================================================================
 // USAGE TRACKING & HEADERS
 // ============================================================================
 
