@@ -505,6 +505,10 @@ app.all(
         req.body = Object.fromEntries(params.entries());
       }
     }
+
+    // CRITICAL: Parse APIX {"query": "param=value"} format
+    req.body = parseApixQueryField(req.body);
+
     // Map all possible APIX parameter name variations to internal names
     // APIX may use: tokenAddress, Token_Address, token_address, TokenAddress, "Token Address"
     const tokenParam = req.body.tokenAddress || req.body.Token_Address ||
@@ -521,6 +525,21 @@ app.all(
     if (limitParam) {
       req.body.limit = parseInt(String(limitParam), 10);
     }
+
+    // Return 200 OK if no token provided (APIX validation check)
+    if (!req.body.token) {
+      return res.status(200).json({
+        status: 'ready',
+        message: 'Token Activity Analysis API - provide token parameter',
+        example: { token: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' },
+        apix_format: { query: 'tokenAddress=TOKEN_MINT&txLimit=100' },
+        parameters: {
+          tokenAddress: 'Token mint address (required)',
+          txLimit: 'Max transactions 1-1000 (optional, default: 100)'
+        }
+      });
+    }
+
     console.log(`[APIX V2-Token-Activity] Processed body: ${JSON.stringify(req.body)}`);
     next();
   },
@@ -547,6 +566,10 @@ app.all(
         req.body = Object.fromEntries(params.entries());
       }
     }
+
+    // CRITICAL: Parse APIX {"query": "param=value"} format
+    req.body = parseApixQueryField(req.body);
+
     // Map all possible APIX parameter name variations to internal names
     // Address variations
     const addressParam = req.body.Address || req.body.address ||
@@ -583,6 +606,27 @@ app.all(
     if (timeParam) {
       req.body.timeRange = timeParam;
     }
+
+    // Return 200 OK if required params missing (APIX validation check)
+    if (!req.body.address || !req.body.token) {
+      return res.status(200).json({
+        status: 'ready',
+        message: 'Flow Path Analysis API - provide address and token parameters',
+        example: {
+          address: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
+          token: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+        },
+        apix_format: { query: 'Address=WALLET&Token=MINT&Direction=forward' },
+        parameters: {
+          Address: 'Wallet address (required)',
+          Token: 'Token mint address (required)',
+          Direction: 'forward or backward (optional, default: forward)',
+          maxDepth: 'Max hops 1-10 (optional, default: 5)',
+          timeRange: 'Time range e.g. 30d, 24h (optional, default: 365d)'
+        }
+      });
+    }
+
     console.log(`[APIX V2-Flow-Path] Processed body: ${JSON.stringify(req.body)}`);
     next();
   },
@@ -617,6 +661,27 @@ function logApixRequest(endpointName: string) {
   };
 }
 
+// Parse APIX query field format: {"query": "param1=value1&param2=value2"}
+// This is the CRITICAL format APIX actually sends!
+function parseApixQueryField(body: any): any {
+  if (!body || typeof body !== 'object') return body;
+
+  // If body has a "query" field with URL-encoded params, parse it
+  if (body.query && typeof body.query === 'string') {
+    console.log(`[APIX] Parsing query field: ${body.query}`);
+    const params = new URLSearchParams(body.query);
+    const parsed: any = {};
+    params.forEach((value, key) => {
+      parsed[key] = value;
+    });
+    console.log(`[APIX] Parsed query params: ${JSON.stringify(parsed)}`);
+    // Merge parsed params into body (parsed takes precedence)
+    return { ...body, ...parsed };
+  }
+
+  return body;
+}
+
 // Token Activity Analysis - APIX slug endpoint (multiple slug variations)
 // APIX registration shows slug: analyze-token-activit... (probably analyze-token-activity)
 // Parameters: token, limit (lowercase)
@@ -638,7 +703,26 @@ const tokenActivityHandler = [
         req.body = Object.fromEntries(params.entries());
       }
     }
+
+    // CRITICAL: Parse APIX {"query": "param=value"} format
+    req.body = parseApixQueryField(req.body);
+
     // APIX sends 'token' and 'limit' directly (from registration config)
+    // Also handle tokenAddress -> token mapping
+    if (req.body.tokenAddress && !req.body.token) {
+      req.body.token = req.body.tokenAddress;
+    }
+
+    // Return 200 OK if no token provided (APIX validation check)
+    if (!req.body.token) {
+      return res.status(200).json({
+        status: 'ready',
+        message: 'Token Activity Analysis - provide token parameter',
+        example: { token: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' },
+        apix_format: { query: 'token=TOKEN_MINT&limit=100' }
+      });
+    }
+
     console.log(`[APIX Token-Activity] Processed body: ${JSON.stringify(req.body)}`);
     next();
   },
@@ -678,10 +762,28 @@ const flowPathHandler = [
         req.body = Object.fromEntries(params.entries());
       }
     }
+
+    // CRITICAL: Parse APIX {"query": "param=value"} format
+    req.body = parseApixQueryField(req.body);
+
     // Map any capital letter variations just in case
     if (req.body.Address && !req.body.address) req.body.address = req.body.Address;
     if (req.body.Token && !req.body.token) req.body.token = req.body.Token;
     if (req.body.Direction && !req.body.direction) req.body.direction = req.body.Direction;
+
+    // Return 200 OK if required params missing (APIX validation check)
+    if (!req.body.address || !req.body.token) {
+      return res.status(200).json({
+        status: 'ready',
+        message: 'Flow Path Analysis - provide address and token parameters',
+        example: {
+          address: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
+          token: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+        },
+        apix_format: { query: 'address=WALLET&token=MINT&direction=forward' }
+      });
+    }
+
     console.log(`[APIX Flow-Path] Processed body: ${JSON.stringify(req.body)}`);
     next();
   },
