@@ -579,10 +579,11 @@ app.all(
       req.body.address = addressParam;
     }
 
-    // Token variations
+    // Token variations - APIX sends "tokenMint" for flow path!
     const tokenParam = req.body.Token || req.body.token ||
                        req.body.token_address || req.body.tokenAddress ||
-                       req.body['Token Address'] || req.body.Token_Address;
+                       req.body['Token Address'] || req.body.Token_Address ||
+                       req.body.tokenMint || req.body.token_mint;
     if (tokenParam) {
       req.body.token = tokenParam;
     }
@@ -769,6 +770,8 @@ const flowPathHandler = [
     // Map any capital letter variations just in case
     if (req.body.Address && !req.body.address) req.body.address = req.body.Address;
     if (req.body.Token && !req.body.token) req.body.token = req.body.Token;
+    if (req.body.tokenMint && !req.body.token) req.body.token = req.body.tokenMint;
+    if (req.body.token_mint && !req.body.token) req.body.token = req.body.token_mint;
     if (req.body.Direction && !req.body.direction) req.body.direction = req.body.Direction;
 
     // Return 200 OK if required params missing (APIX validation check)
